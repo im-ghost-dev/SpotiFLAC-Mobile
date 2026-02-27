@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,8 +7,11 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/library_collections_provider.dart';
+import 'package:spotiflac_android/providers/local_library_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
+import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
 import 'package:spotiflac_android/widgets/playlist_picker_sheet.dart';
 import 'package:spotiflac_android/utils/clickable_metadata.dart';
@@ -171,9 +176,20 @@ class _TrackOptionsSheet extends ConsumerWidget {
               // Action items (matches _QualityOption style)
               _OptionTile(
                 icon: Icons.download_rounded,
-                title: context.l10n.downloadTitle,
+                title: 'Download & Play',
                 onTap: () async {
                   Navigator.pop(context);
+                  final playedLocal = await _playLocalIfAvailable(
+                    container,
+                    rootContext,
+                  );
+                  if (playedLocal) {
+                    return;
+                  }
+                  if (!rootContext.mounted) {
+                    return;
+                  }
+
                   if (settings.askQualityBeforeDownload) {
                     DownloadServicePicker.show(
                       rootContext,
@@ -181,35 +197,19 @@ class _TrackOptionsSheet extends ConsumerWidget {
                       artistName: track.artistName,
                       coverUrl: track.coverUrl,
                       onSelect: (quality, service) {
-                        container
-                            .read(downloadQueueProvider.notifier)
-                            .addToQueue(
-                              track,
-                              service,
-                              qualityOverride: quality,
-                            );
-                        ScaffoldMessenger.of(rootContext).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              rootContext.l10n.snackbarAddedToQueue(track.name),
-                            ),
-                          ),
+                        _enqueueDownloadAndAutoPlay(
+                          container: container,
+                          context: rootContext,
+                          service: service,
+                          quality: quality,
                         );
                       },
                     );
                   } else {
-                    container
-                        .read(downloadQueueProvider.notifier)
-                        .addToQueue(track, settings.defaultService);
-                    if (!rootContext.mounted) {
-                      return;
-                    }
-                    ScaffoldMessenger.of(rootContext).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          rootContext.l10n.snackbarAddedToQueue(track.name),
-                        ),
-                      ),
+                    _enqueueDownloadAndAutoPlay(
+                      container: container,
+                      context: rootContext,
+                      service: settings.defaultService,
                     );
                   }
                 },
@@ -281,6 +281,138 @@ class _TrackOptionsSheet extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<bool> _playLocalIfAvailable(
+    ProviderContainer container,
+    BuildContext context,
+  ) async {
+    final localState = container.read(localLibraryProvider);
+    final historyState = container.read(downloadHistoryProvider);
+    final historyNotifier = container.read(downloadHistoryProvider.notifier);
+
+    try {
+      DownloadHistoryItem? historyItem = historyNotifier.getBySpotifyId(
+        track.id,
+      );
+      final isrc = track.isrc?.trim();
+      historyItem ??= (isrc != null && isrc.isNotEmpty)
+          ? historyNotifier.getByIsrc(isrc)
+          : null;
+      historyItem ??= historyState.findByTrackAndArtist(
+        track.name,
+        track.artistName,
+      );
+
+      if (historyItem != null) {
+        final exists = await fileExists(historyItem.filePath);
+        if (exists) {
+          await container
+              .read(playbackProvider.notifier)
+              .playLocalPath(
+                path: historyItem.filePath,
+                title: track.name,
+                artist: track.artistName,
+                album: track.albumName,
+                coverUrl: track.coverUrl ?? '',
+              );
+          return true;
+        }
+        historyNotifier.removeFromHistory(historyItem.id);
+      }
+
+      var localItem = (isrc != null && isrc.isNotEmpty)
+          ? localState.getByIsrc(isrc)
+          : null;
+      localItem ??= localState.findByTrackAndArtist(
+        track.name,
+        track.artistName,
+      );
+
+      if (localItem != null && await fileExists(localItem.filePath)) {
+        await container
+            .read(playbackProvider.notifier)
+            .playLocalPath(
+              path: localItem.filePath,
+              title: localItem.trackName,
+              artist: localItem.artistName,
+              album: localItem.albumName,
+              coverUrl: localItem.coverPath ?? track.coverUrl ?? '',
+            );
+        return true;
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.snackbarCannotOpenFile('$e'))),
+        );
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  void _enqueueDownloadAndAutoPlay({
+    required ProviderContainer container,
+    required BuildContext context,
+    required String service,
+    String? quality,
+  }) {
+    container
+        .read(downloadQueueProvider.notifier)
+        .addToQueue(track, service, qualityOverride: quality);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.snackbarAddedToQueue(track.name))),
+      );
+    }
+    unawaited(_waitForDownloadedFileAndPlay(container, context));
+  }
+
+  Future<void> _waitForDownloadedFileAndPlay(
+    ProviderContainer container,
+    BuildContext context,
+  ) async {
+    const maxAttempts = 180; // up to ~3 minutes
+    for (var i = 0; i < maxAttempts; i++) {
+      final item = _findHistoryMatch(container);
+      if (item != null && await fileExists(item.filePath)) {
+        try {
+          await container
+              .read(playbackProvider.notifier)
+              .playLocalPath(
+                path: item.filePath,
+                title: track.name,
+                artist: track.artistName,
+                album: track.albumName,
+                coverUrl: track.coverUrl ?? '',
+              );
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(context.l10n.snackbarCannotOpenFile('$e')),
+              ),
+            );
+          }
+        }
+        return;
+      }
+      await Future.delayed(const Duration(seconds: 1));
+    }
+  }
+
+  DownloadHistoryItem? _findHistoryMatch(ProviderContainer container) {
+    final historyState = container.read(downloadHistoryProvider);
+    final historyNotifier = container.read(downloadHistoryProvider.notifier);
+    final isrc = track.isrc?.trim();
+
+    return historyNotifier.getBySpotifyId(track.id) ??
+        ((isrc != null && isrc.isNotEmpty)
+            ? historyNotifier.getByIsrc(isrc)
+            : null) ??
+        historyState.findByTrackAndArtist(track.name, track.artistName);
   }
 }
 

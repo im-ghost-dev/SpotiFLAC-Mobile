@@ -8,6 +8,7 @@ import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/recent_access_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/widgets/track_collection_quick_actions.dart';
@@ -761,7 +762,12 @@ class _AlbumTrackItem extends ConsumerWidget {
 
     final isInHistory = ref.watch(
       downloadHistoryProvider.select((state) {
-        return state.isDownloaded(track.id);
+        if (state.isDownloaded(track.id)) return true;
+        final isrc = track.isrc?.trim();
+        if (isrc != null && isrc.isNotEmpty && state.getByIsrc(isrc) != null) {
+          return true;
+        }
+        return state.findByTrackAndArtist(track.name, track.artistName) != null;
       }),
     );
 
@@ -861,13 +867,7 @@ class _AlbumTrackItem extends ConsumerWidget {
             ],
           ),
           trailing: TrackCollectionQuickActions(track: track),
-          onTap: () => _handleTap(
-            context,
-            ref,
-            isQueued: isQueued,
-            isInHistory: isInHistory,
-            isInLocalLibrary: isInLocalLibrary,
-          ),
+          onTap: () => _handleTap(context, ref, isQueued: isQueued),
           onLongPress: () => TrackCollectionQuickActions.showTrackOptionsSheet(
             context,
             ref,
@@ -882,47 +882,84 @@ class _AlbumTrackItem extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref, {
     required bool isQueued,
-    required bool isInHistory,
-    required bool isInLocalLibrary,
   }) async {
     if (isQueued) return;
 
-    if (isInLocalLibrary) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.snackbarAlreadyInLibrary(track.name)),
-          ),
-        );
-      }
+    final playedLocal = await _playLocalIfAvailable(context, ref);
+    if (playedLocal) {
       return;
     }
 
-    if (isInHistory) {
-      final historyItem = ref
-          .read(downloadHistoryProvider.notifier)
-          .getBySpotifyId(track.id);
+    onDownload();
+  }
+
+  Future<bool> _playLocalIfAvailable(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final localState = ref.read(localLibraryProvider);
+    final historyState = ref.read(downloadHistoryProvider);
+    final historyNotifier = ref.read(downloadHistoryProvider.notifier);
+
+    try {
+      DownloadHistoryItem? historyItem = historyNotifier.getBySpotifyId(
+        track.id,
+      );
+      final isrc = track.isrc?.trim();
+      historyItem ??= (isrc != null && isrc.isNotEmpty)
+          ? historyNotifier.getByIsrc(isrc)
+          : null;
+      historyItem ??= historyState.findByTrackAndArtist(
+        track.name,
+        track.artistName,
+      );
+
       if (historyItem != null) {
         final exists = await fileExists(historyItem.filePath);
         if (exists) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  context.l10n.snackbarAlreadyDownloaded(track.name),
-                ),
-              ),
-            );
-          }
-          return;
-        } else {
-          ref
-              .read(downloadHistoryProvider.notifier)
-              .removeBySpotifyId(track.id);
+          await ref
+              .read(playbackProvider.notifier)
+              .playLocalPath(
+                path: historyItem.filePath,
+                title: track.name,
+                artist: track.artistName,
+                album: track.albumName,
+                coverUrl: track.coverUrl ?? '',
+              );
+          return true;
         }
+        historyNotifier.removeFromHistory(historyItem.id);
       }
+
+      var localItem = (isrc != null && isrc.isNotEmpty)
+          ? localState.getByIsrc(isrc)
+          : null;
+      localItem ??= localState.findByTrackAndArtist(
+        track.name,
+        track.artistName,
+      );
+
+      if (localItem != null && await fileExists(localItem.filePath)) {
+        await ref
+            .read(playbackProvider.notifier)
+            .playLocalPath(
+              path: localItem.filePath,
+              title: localItem.trackName,
+              artist: localItem.artistName,
+              album: localItem.albumName,
+              coverUrl: localItem.coverPath ?? track.coverUrl ?? '',
+            );
+        return true;
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.snackbarCannotOpenFile('$e'))),
+        );
+      }
+      return true;
     }
 
-    onDownload();
+    return false;
   }
 }
