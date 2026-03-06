@@ -3,16 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:spotiflac_android/models/settings.dart';
+import 'package:spotiflac_android/constants/app_info.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/logger.dart';
 
 const _settingsKey = 'app_settings';
 const _migrationVersionKey = 'settings_migration_version';
-const _currentMigrationVersion = 2;
+const _currentMigrationVersion = 4;
 const _spotifyClientSecretKey = 'spotify_client_secret';
 final _log = AppLogger('SettingsProvider');
 
 class SettingsNotifier extends Notifier<AppSettings> {
+  static const List<int> _youtubeOpusSupportedBitrates = [128, 256];
+  static const List<int> _youtubeMp3SupportedBitrates = [128, 256, 320];
+  static final RegExp _isoRegionPattern = RegExp(r'^[A-Z]{2}$');
+
   final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   bool _isSavingSettings = false;
@@ -32,6 +37,8 @@ class SettingsNotifier extends Notifier<AppSettings> {
       state = AppSettings.fromJson(jsonDecode(json));
 
       await _runMigrations(prefs);
+      await _normalizeYouTubeBitratesIfNeeded();
+      await _normalizeSongLinkRegionIfNeeded();
     }
 
     await _loadSpotifyClientSecret(prefs);
@@ -41,6 +48,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
     LogBuffer.loggingEnabled = state.enableLogging;
 
     _syncLyricsSettingsToBackend();
+    _syncNetworkCompatibilitySettingsToBackend();
   }
 
   void _syncLyricsSettingsToBackend() {
@@ -55,6 +63,16 @@ class SettingsNotifier extends Notifier<AppSettings> {
       'musixmatch_language': state.musixmatchLanguage,
     }).catchError((e) {
       _log.w('Failed to sync lyrics fetch options to backend: $e');
+    });
+  }
+
+  void _syncNetworkCompatibilitySettingsToBackend() {
+    final compatibilityMode = state.networkCompatibilityMode;
+    PlatformBridge.setNetworkCompatibilityOptions(
+      allowHttp: compatibilityMode,
+      insecureTls: compatibilityMode,
+    ).catchError((e) {
+      _log.w('Failed to sync network compatibility options to backend: $e');
     });
   }
 
@@ -76,6 +94,18 @@ class SettingsNotifier extends Notifier<AppSettings> {
       if (!state.isFirstLaunch && !state.hasCompletedTutorial) {
         state = state.copyWith(hasCompletedTutorial: true);
       }
+      // Migration 4: include Spotify Lyrics API in provider order for existing users
+      if (!state.lyricsProviders.contains('spotify_api')) {
+        final updatedProviders = List<String>.from(state.lyricsProviders);
+        final lrclibIndex = updatedProviders.indexOf('lrclib');
+        if (lrclibIndex >= 0) {
+          updatedProviders.insert(lrclibIndex + 1, 'spotify_api');
+        } else {
+          updatedProviders.add('spotify_api');
+        }
+        state = state.copyWith(lyricsProviders: updatedProviders);
+      }
+      state = state.copyWith(lastSeenVersion: AppInfo.version);
       await prefs.setInt(_migrationVersionKey, _currentMigrationVersion);
       await _saveSettings();
     }
@@ -105,6 +135,62 @@ class SettingsNotifier extends Notifier<AppSettings> {
     } finally {
       _isSavingSettings = false;
     }
+  }
+
+  int _nearestSupportedBitrate(int value, List<int> supported) {
+    var nearest = supported.first;
+    var nearestDistance = (value - nearest).abs();
+
+    for (final option in supported.skip(1)) {
+      final distance = (value - option).abs();
+      // On tie, prefer higher quality bitrate.
+      if (distance < nearestDistance ||
+          (distance == nearestDistance && option > nearest)) {
+        nearest = option;
+        nearestDistance = distance;
+      }
+    }
+
+    return nearest;
+  }
+
+  int _normalizeYouTubeOpusBitrate(int bitrate) {
+    return _nearestSupportedBitrate(bitrate, _youtubeOpusSupportedBitrates);
+  }
+
+  int _normalizeYouTubeMp3Bitrate(int bitrate) {
+    return _nearestSupportedBitrate(bitrate, _youtubeMp3SupportedBitrates);
+  }
+
+  Future<void> _normalizeYouTubeBitratesIfNeeded() async {
+    final normalizedOpus = _normalizeYouTubeOpusBitrate(
+      state.youtubeOpusBitrate,
+    );
+    final normalizedMp3 = _normalizeYouTubeMp3Bitrate(state.youtubeMp3Bitrate);
+
+    if (normalizedOpus == state.youtubeOpusBitrate &&
+        normalizedMp3 == state.youtubeMp3Bitrate) {
+      return;
+    }
+
+    state = state.copyWith(
+      youtubeOpusBitrate: normalizedOpus,
+      youtubeMp3Bitrate: normalizedMp3,
+    );
+    await _saveSettings();
+  }
+
+  String _normalizeSongLinkRegion(String region) {
+    final normalized = region.trim().toUpperCase();
+    if (_isoRegionPattern.hasMatch(normalized)) return normalized;
+    return 'US';
+  }
+
+  Future<void> _normalizeSongLinkRegionIfNeeded() async {
+    final normalized = _normalizeSongLinkRegion(state.songLinkRegion);
+    if (normalized == state.songLinkRegion) return;
+    state = state.copyWith(songLinkRegion: normalized);
+    await _saveSettings();
   }
 
   Future<void> _loadSpotifyClientSecret(SharedPreferences prefs) async {
@@ -198,6 +284,11 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setEmbedMetadata(bool enabled) {
+    state = state.copyWith(embedMetadata: enabled);
+    _saveSettings();
+  }
+
   void setLyricsMode(String mode) {
     if (mode == 'embed' || mode == 'external' || mode == 'both') {
       state = state.copyWith(lyricsMode: mode);
@@ -230,7 +321,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
   }
 
   void setMusixmatchLanguage(String languageCode) {
-    state = state.copyWith(musixmatchLanguage: languageCode.trim().toLowerCase());
+    state = state.copyWith(
+      musixmatchLanguage: languageCode.trim().toLowerCase(),
+    );
     _saveSettings();
     _syncLyricsSettingsToBackend();
   }
@@ -390,6 +483,18 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setYoutubeOpusBitrate(int bitrate) {
+    final normalized = _normalizeYouTubeOpusBitrate(bitrate);
+    state = state.copyWith(youtubeOpusBitrate: normalized);
+    _saveSettings();
+  }
+
+  void setYoutubeMp3Bitrate(int bitrate) {
+    final normalized = _normalizeYouTubeMp3Bitrate(bitrate);
+    state = state.copyWith(youtubeMp3Bitrate: normalized);
+    _saveSettings();
+  }
+
   void setUseAllFilesAccess(bool enabled) {
     state = state.copyWith(useAllFilesAccess: enabled);
     _saveSettings();
@@ -402,6 +507,18 @@ class SettingsNotifier extends Notifier<AppSettings> {
 
   void setDownloadNetworkMode(String mode) {
     state = state.copyWith(downloadNetworkMode: mode);
+    _saveSettings();
+  }
+
+  void setNetworkCompatibilityMode(bool enabled) {
+    state = state.copyWith(networkCompatibilityMode: enabled);
+    _saveSettings();
+    _syncNetworkCompatibilitySettingsToBackend();
+  }
+
+  void setSongLinkRegion(String region) {
+    final normalized = _normalizeSongLinkRegion(region);
+    state = state.copyWith(songLinkRegion: normalized);
     _saveSettings();
   }
 

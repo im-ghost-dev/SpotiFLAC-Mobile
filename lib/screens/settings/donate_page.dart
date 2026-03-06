@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:spotiflac_android/constants/app_info.dart';
 import 'package:spotiflac_android/utils/app_bar_layout.dart';
@@ -165,6 +166,7 @@ class _RecentDonorsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    const donorNames = <String>[];
 
     // Match SettingsGroup color logic
     final cardColor = isDark
@@ -207,17 +209,39 @@ class _RecentDonorsCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _DonorTile(name: 'J', colorScheme: colorScheme),
-            _DonorTile(name: 'Julian', colorScheme: colorScheme),
-            _DonorTile(name: 'matt_3050', colorScheme: colorScheme),
-            _DonorTile(name: 'Daniel', colorScheme: colorScheme),
-            _DonorTile(name: '283Fabio', colorScheme: colorScheme),
-            _DonorTile(name: 'laflame', colorScheme: colorScheme),
-            _DonorTile(
-              name: 'Elias el Autentico',
-              colorScheme: colorScheme,
-              showDivider: false,
-            ),
+            if (donorNames.isEmpty)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.emoji_events_outlined,
+                        size: 32,
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No supporters yet — be the first!',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: donorNames
+                    .map(
+                      (name) =>
+                          _SupporterChip(name: name, colorScheme: colorScheme),
+                    )
+                    .toList(),
+              ),
           ],
         ),
       ),
@@ -271,6 +295,19 @@ class _DonateLinksCard extends StatelessWidget {
             customIcon: const GitHubIcon(size: 22, color: Colors.white),
             color: const Color(0xFF2D333B),
             url: AppInfo.githubSponsorsUrl,
+            colorScheme: colorScheme,
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            indent: 74,
+            endIndent: 16,
+            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+          _CryptoWalletItem(
+            title: 'USDT (TRC20)',
+            walletAddress: 'TL7iAqjq9M8BwVMi9AtHvuAGHtdwEvsDta',
+            color: const Color(0xFF26A17B),
             colorScheme: colorScheme,
           ),
         ],
@@ -348,55 +385,166 @@ class _DonateCardItem extends StatelessWidget {
   }
 }
 
-class _DonorTile extends StatelessWidget {
-  final String name;
+class _CryptoWalletItem extends StatelessWidget {
+  final String title;
+  final String walletAddress;
+  final Color color;
   final ColorScheme colorScheme;
-  final bool showDivider;
 
-  const _DonorTile({
-    required this.name,
+  const _CryptoWalletItem({
+    required this.title,
+    required this.walletAddress,
+    required this.color,
     required this.colorScheme,
-    this.showDivider = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: colorScheme.primaryContainer,
+    return InkWell(
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: walletAddress));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$title address copied to clipboard'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
                 child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  '\$',
                   style: TextStyle(
-                    fontSize: 14,
+                    color: Colors.white,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: colorScheme.onPrimaryContainer,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                name,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: colorScheme.onSurface),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    walletAddress,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontSize: 11,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            Icon(
+              Icons.copy_rounded,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ],
         ),
-        if (showDivider)
-          Divider(
-            height: 1,
-            thickness: 1,
-            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-          ),
-      ],
+      ),
+    );
+  }
+}
+
+int _cr(String v) {
+  int r = 0x1F;
+  for (final c in v.codeUnits) { r = (r * 31 + c) & 0x7FFFFFFF; }
+  return r;
+}
+// Highlighted supporters (hashes of names): none for now.
+const _cv = <int>{};
+
+class _SupporterChip extends StatelessWidget {
+  final String name;
+  final ColorScheme colorScheme;
+
+  const _SupporterChip({required this.name, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    final e = _cv.contains(_cr(name));
+    const goldChipColor = Color(0xFFFFF8DC);
+    const goldAccentColor = Color(0xFFB8860B);
+    const goldDarkChipColor = Color(0xFF3A3000);
+
+    final chipColor = e
+        ? goldChipColor
+        : colorScheme.secondaryContainer;
+    final accentColor = e
+        ? goldAccentColor
+        : colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final effectiveChipColor = e && isDark
+        ? goldDarkChipColor
+        : chipColor;
+
+    return Material(
+      color: effectiveChipColor,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: e
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.4),
+                  width: 1,
+                ),
+              )
+            : null,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 10,
+              backgroundColor: accentColor.withValues(alpha: 0.2),
+              child: e
+                  ? Icon(Icons.star_rounded, size: 12, color: accentColor)
+                  : Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              name,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: e
+                    ? accentColor
+                    : colorScheme.onSecondaryContainer,
+                fontWeight: e ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

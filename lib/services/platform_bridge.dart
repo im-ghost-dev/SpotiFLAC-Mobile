@@ -7,6 +7,12 @@ final _log = AppLogger('PlatformBridge');
 
 class PlatformBridge {
   static const _channel = MethodChannel('com.zarz.spotiflac/backend');
+  static const _downloadProgressEvents = EventChannel(
+    'com.zarz.spotiflac/download_progress_stream',
+  );
+  static const _libraryScanProgressEvents = EventChannel(
+    'com.zarz.spotiflac/library_scan_progress_stream',
+  );
 
   static Future<Map<String, dynamic>> parseSpotifyUrl(String url) async {
     _log.d('parseSpotifyUrl: $url');
@@ -44,6 +50,17 @@ class PlatformBridge {
       'query': query,
       'track_limit': trackLimit,
       'artist_limit': artistLimit,
+    });
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getSpotifyRelatedArtists(
+    String artistId, {
+    int limit = 12,
+  }) async {
+    final result = await _channel.invokeMethod('getSpotifyRelatedArtists', {
+      'artist_id': artistId,
+      'limit': limit,
     });
     return jsonDecode(result as String) as Map<String, dynamic>;
   }
@@ -113,6 +130,22 @@ class PlatformBridge {
     return jsonDecode(result as String) as Map<String, dynamic>;
   }
 
+  static Stream<Map<String, dynamic>> downloadProgressStream() {
+    return _downloadProgressEvents.receiveBroadcastStream().map((event) {
+      if (event is String) {
+        return jsonDecode(event) as Map<String, dynamic>;
+      }
+      if (event is Map) {
+        return Map<String, dynamic>.from(event);
+      }
+      return const <String, dynamic>{};
+    });
+  }
+
+  static Future<void> exitApp() async {
+    await _channel.invokeMethod('exitApp');
+  }
+
   static Future<void> initItemProgress(String itemId) async {
     await _channel.invokeMethod('initItemProgress', {'item_id': itemId});
   }
@@ -131,6 +164,16 @@ class PlatformBridge {
 
   static Future<void> setDownloadDirectory(String path) async {
     await _channel.invokeMethod('setDownloadDirectory', {'path': path});
+  }
+
+  static Future<void> setNetworkCompatibilityOptions({
+    required bool allowHttp,
+    required bool insecureTls,
+  }) async {
+    await _channel.invokeMethod('setNetworkCompatibilityOptions', {
+      'allow_http': allowHttp,
+      'insecure_tls': insecureTls,
+    });
   }
 
   static Future<Map<String, dynamic>> checkDuplicate(
@@ -239,6 +282,17 @@ class PlatformBridge {
   static Future<bool> shareContentUri(String uri, {String title = ''}) async {
     final result = await _channel.invokeMethod('shareContentUri', {
       'uri': uri,
+      'title': title,
+    });
+    return result as bool? ?? false;
+  }
+
+  static Future<bool> shareMultipleContentUris(
+    List<String> uris, {
+    String title = '',
+  }) async {
+    final result = await _channel.invokeMethod('shareMultipleContentUris', {
+      'uris': uris,
       'title': title,
     });
     return result as bool? ?? false;
@@ -507,6 +561,17 @@ class PlatformBridge {
       'track_limit': trackLimit,
       'artist_limit': artistLimit,
       'filter': filter ?? '',
+    });
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> getDeezerRelatedArtists(
+    String artistId, {
+    int limit = 12,
+  }) async {
+    final result = await _channel.invokeMethod('getDeezerRelatedArtists', {
+      'artist_id': artistId,
+      'limit': limit,
     });
     return jsonDecode(result as String) as Map<String, dynamic>;
   }
@@ -1075,6 +1140,18 @@ class PlatformBridge {
   static Future<Map<String, dynamic>> getLibraryScanProgress() async {
     final result = await _channel.invokeMethod('getLibraryScanProgress');
     return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Stream<Map<String, dynamic>> libraryScanProgressStream() {
+    return _libraryScanProgressEvents.receiveBroadcastStream().map((event) {
+      if (event is String) {
+        return jsonDecode(event) as Map<String, dynamic>;
+      }
+      if (event is Map) {
+        return Map<String, dynamic>.from(event);
+      }
+      return const <String, dynamic>{};
+    });
   }
 
   /// Cancel ongoing library scan

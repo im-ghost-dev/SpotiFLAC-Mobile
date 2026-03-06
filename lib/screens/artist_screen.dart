@@ -6,18 +6,20 @@ import 'package:intl/intl.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/models/track.dart';
-import 'package:spotiflac_android/models/download_item.dart';
 import 'package:spotiflac_android/providers/track_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/recent_access_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
 import 'package:spotiflac_android/screens/album_screen.dart';
 import 'package:spotiflac_android/screens/home_tab.dart'
     show ExtensionAlbumScreen;
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
+import 'package:spotiflac_android/widgets/track_collection_quick_actions.dart';
+import 'package:spotiflac_android/utils/clickable_metadata.dart';
 
 /// Simple in-memory cache for artist data
 class _ArtistCache {
@@ -309,6 +311,10 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
       artistName: (data['artists'] ?? data['artist'] ?? '').toString(),
       albumName: (data['album_name'] ?? data['album'] ?? '').toString(),
       albumArtist: data['album_artist']?.toString(),
+      artistId:
+          (data['artist_id'] ?? data['artistId'])?.toString() ??
+          widget.artistId,
+      albumId: data['album_id']?.toString(),
       coverUrl: (data['cover_url'] ?? data['images'])?.toString(),
       isrc: data['isrc']?.toString(),
       duration: (durationMs / 1000).round(),
@@ -675,6 +681,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -772,7 +779,6 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     List<ArtistAlbum> albums,
   ) async {
     final settings = ref.read(settingsProvider);
-
     if (settings.askQualityBeforeDownload) {
       DownloadServicePicker.show(
         context,
@@ -990,6 +996,8 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               .toString(),
       albumName: album.name,
       albumArtist: widget.artistName,
+      artistId: widget.artistId,
+      albumId: album.id.isNotEmpty ? album.id : null,
       coverUrl: album.coverUrl,
       isrc: data['isrc']?.toString(),
       duration: (durationMs / 1000).round(),
@@ -1100,63 +1108,72 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               left: 16,
               right: 16,
               bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    widget.artistName,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          offset: const Offset(0, 1),
-                          blurRadius: 4,
-                          color: Colors.black.withValues(alpha: 0.5),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.artistName,
+                          style: Theme.of(context).textTheme.headlineLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                shadows: [
+                                  Shadow(
+                                    offset: const Offset(0, 1),
+                                    blurRadius: 4,
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                  ),
+                                ],
+                              ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (listenersText != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      listenersText,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(0, 1),
-                            blurRadius: 2,
-                            color: Colors.black.withValues(alpha: 0.5),
+                        if (listenersText != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            listenersText,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  shadows: [
+                                    Shadow(
+                                      offset: const Offset(0, 1),
+                                      blurRadius: 2,
+                                      color: Colors.black.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
-                  // Download Discography button
+                  ),
+                  // Download Discography button (icon only, right-aligned)
                   if (hasDiscography && !_isSelectionMode) ...[
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 40,
-                      child: FilledButton.icon(
+                    const SizedBox(width: 12),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
                         onPressed: () => _showDiscographyOptions(
                           context,
                           colorScheme,
                           albums,
                         ),
-                        icon: const Icon(Icons.download, size: 18),
-                        label: Text(context.l10n.discographyDownload),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black87,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
+                        icon: const Icon(Icons.download_rounded, size: 26),
+                        color: Colors.black87,
+                        tooltip: context.l10n.discographyDownload,
                       ),
                     ),
                   ],
@@ -1227,9 +1244,17 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
         );
 
         final isInHistory = ref.watch(
-          downloadHistoryProvider.select(
-            (state) => state.isDownloaded(track.id),
-          ),
+          downloadHistoryProvider.select((state) {
+            if (state.isDownloaded(track.id)) return true;
+            final isrc = track.isrc?.trim();
+            if (isrc != null &&
+                isrc.isNotEmpty &&
+                state.getByIsrc(isrc) != null) {
+              return true;
+            }
+            return state.findByTrackAndArtist(track.name, track.artistName) !=
+                null;
+          }),
         );
 
         final showLocalLibraryIndicator = ref.watch(
@@ -1250,20 +1275,13 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
             : false;
 
         final isQueued = queueItem != null;
-        final isDownloading = queueItem?.status == DownloadStatus.downloading;
-        final isFinalizing = queueItem?.status == DownloadStatus.finalizing;
-        final isCompleted = queueItem?.status == DownloadStatus.completed;
-        final progress = queueItem?.progress ?? 0.0;
-
-        final showAsDownloaded =
-            isCompleted || (!isQueued && isInHistory) || isInLocalLibrary;
 
         return InkWell(
-          onTap: () => _handlePopularTrackTap(
+          onTap: () => _handlePopularTrackTap(track, isQueued: isQueued),
+          onLongPress: () => TrackCollectionQuickActions.showTrackOptionsSheet(
+            context,
+            ref,
             track,
-            isQueued: isQueued,
-            isInHistory: isInHistory,
-            isInLocalLibrary: isInLocalLibrary,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1330,28 +1348,66 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (track.albumName.isNotEmpty)
-                        Text(
-                          track.albumName,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      if (track.albumName.isNotEmpty ||
+                          isInLocalLibrary ||
+                          isInHistory)
+                        Row(
+                          children: [
+                            if (track.albumName.isNotEmpty)
+                              Expanded(
+                                child: ClickableAlbumName(
+                                  albumName: track.albumName,
+                                  albumId: track.albumId,
+                                  artistName: track.artistName,
+                                  coverUrl: track.coverUrl,
+                                  extensionId: widget.extensionId,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            if (isInLocalLibrary || isInHistory) ...[
+                              if (track.albumName.isNotEmpty)
+                                const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.tertiaryContainer,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.folder_outlined,
+                                      size: 10,
+                                      color: colorScheme.onTertiaryContainer,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      context.l10n.libraryInLibrary,
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onTertiaryContainer,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                     ],
                   ),
                 ),
-                _buildPopularDownloadButton(
-                  track: track,
-                  colorScheme: colorScheme,
-                  isQueued: isQueued,
-                  isDownloading: isDownloading,
-                  isFinalizing: isFinalizing,
-                  showAsDownloaded: showAsDownloaded,
-                  isInHistory: isInHistory,
-                  isInLocalLibrary: isInLocalLibrary,
-                  progress: progress,
-                ),
+                TrackCollectionQuickActions(track: track),
               ],
             ),
           ),
@@ -1361,162 +1417,82 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   }
 
   /// Handle tap on popular track item
-  void _handlePopularTrackTap(
-    Track track, {
-    required bool isQueued,
-    required bool isInHistory,
-    required bool isInLocalLibrary,
-  }) async {
+  void _handlePopularTrackTap(Track track, {required bool isQueued}) async {
     if (isQueued) return;
 
-    if (isInLocalLibrary) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.snackbarAlreadyInLibrary(track.name)),
-          ),
-        );
-      }
+    final playedLocal = await _playLocalIfAvailable(track);
+    if (playedLocal) {
       return;
-    }
-
-    if (isInHistory) {
-      final historyItem = ref
-          .read(downloadHistoryProvider.notifier)
-          .getBySpotifyId(track.id);
-      if (historyItem != null) {
-        final exists = await fileExists(historyItem.filePath);
-        if (exists) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  context.l10n.snackbarAlreadyDownloaded(track.name),
-                ),
-              ),
-            );
-          }
-          return;
-        } else {
-          ref
-              .read(downloadHistoryProvider.notifier)
-              .removeBySpotifyId(track.id);
-        }
-      }
     }
 
     _downloadTrack(track);
   }
 
-  Widget _buildPopularDownloadButton({
-    required Track track,
-    required ColorScheme colorScheme,
-    required bool isQueued,
-    required bool isDownloading,
-    required bool isFinalizing,
-    required bool showAsDownloaded,
-    required bool isInHistory,
-    required bool isInLocalLibrary,
-    required double progress,
-  }) {
-    const double size = 40.0;
-    const double iconSize = 20.0;
+  Future<bool> _playLocalIfAvailable(Track track) async {
+    final localState = ref.read(localLibraryProvider);
+    final historyState = ref.read(downloadHistoryProvider);
+    final historyNotifier = ref.read(downloadHistoryProvider.notifier);
 
-    if (showAsDownloaded) {
-      return GestureDetector(
-        onTap: () => _handlePopularTrackTap(
-          track,
-          isQueued: isQueued,
-          isInHistory: isInHistory,
-          isInLocalLibrary: isInLocalLibrary,
-        ),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.check,
-            color: colorScheme.onPrimaryContainer,
-            size: iconSize,
-          ),
-        ),
+    try {
+      DownloadHistoryItem? historyItem = historyNotifier.getBySpotifyId(
+        track.id,
       );
-    } else if (isFinalizing) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: colorScheme.tertiary,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            Icon(Icons.edit_note, color: colorScheme.tertiary, size: 14),
-          ],
-        ),
+      final isrc = track.isrc?.trim();
+      historyItem ??= (isrc != null && isrc.isNotEmpty)
+          ? historyNotifier.getByIsrc(isrc)
+          : null;
+      historyItem ??= historyState.findByTrackAndArtist(
+        track.name,
+        track.artistName,
       );
-    } else if (isDownloading) {
-      return SizedBox(
-        width: size,
-        height: size,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            CircularProgressIndicator(
-              value: progress > 0 ? progress : null,
-              strokeWidth: 2.5,
-              color: colorScheme.primary,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
-            if (progress > 0)
-              Text(
-                '${(progress * 100).toInt()}',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.primary,
-                ),
-              ),
-          ],
-        ),
+
+      if (historyItem != null) {
+        final exists = await fileExists(historyItem.filePath);
+        if (exists) {
+          await ref
+              .read(playbackProvider.notifier)
+              .playLocalPath(
+                path: historyItem.filePath,
+                title: track.name,
+                artist: track.artistName,
+                album: track.albumName,
+                coverUrl: track.coverUrl ?? '',
+              );
+          return true;
+        }
+        historyNotifier.removeFromHistory(historyItem.id);
+      }
+
+      var localItem = (isrc != null && isrc.isNotEmpty)
+          ? localState.getByIsrc(isrc)
+          : null;
+      localItem ??= localState.findByTrackAndArtist(
+        track.name,
+        track.artistName,
       );
-    } else if (isQueued) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          Icons.hourglass_empty,
-          color: colorScheme.onSurfaceVariant,
-          size: iconSize,
-        ),
-      );
-    } else {
-      return GestureDetector(
-        onTap: () => _downloadTrack(track),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: colorScheme.secondaryContainer,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.download,
-            color: colorScheme.onSecondaryContainer,
-            size: iconSize,
-          ),
-        ),
-      );
+
+      if (localItem != null && await fileExists(localItem.filePath)) {
+        await ref
+            .read(playbackProvider.notifier)
+            .playLocalPath(
+              path: localItem.filePath,
+              title: localItem.trackName,
+              artist: localItem.artistName,
+              album: localItem.albumName,
+              coverUrl: localItem.coverPath ?? track.coverUrl ?? '',
+            );
+        return true;
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.snackbarCannotOpenFile('$e'))),
+        );
+      }
+      return true;
     }
+
+    return false;
   }
 
   void _downloadTrack(Track track) {

@@ -1,5 +1,3 @@
-// Package gobackend provides exported functions for gomobile binding
-// These functions are the bridge between Flutter and Go backend
 package gobackend
 
 import (
@@ -125,6 +123,35 @@ func SearchSpotifyAll(query string, trackLimit, artistLimit int) (string, error)
 	return string(jsonBytes), nil
 }
 
+func GetSpotifyRelatedArtists(artistID string, limit int) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	client, err := NewSpotifyMetadataClient()
+	if err != nil {
+		return "", err
+	}
+
+	normalizedArtistID := strings.TrimSpace(strings.TrimPrefix(artistID, "spotify:"))
+	if normalizedArtistID == "" {
+		return "", fmt.Errorf("invalid Spotify artist ID")
+	}
+
+	artists, err := client.GetRelatedArtists(ctx, normalizedArtistID, limit)
+	if err != nil {
+		return "", err
+	}
+
+	resp := map[string]interface{}{
+		"artists": artists,
+	}
+	jsonBytes, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonBytes), nil
+}
+
 func CheckAvailability(spotifyID, isrc string) (string, error) {
 	client := NewSongLinkClient()
 	availability, err := client.CheckTrackAvailability(spotifyID, isrc)
@@ -138,6 +165,12 @@ func CheckAvailability(spotifyID, isrc string) (string, error) {
 	}
 
 	return string(jsonBytes), nil
+}
+
+// SetSongLinkNetworkOptions is kept for backward compatibility.
+// It now applies global network compatibility options for all backend API requests.
+func SetSongLinkNetworkOptions(allowHTTP, insecureTLS bool) {
+	SetNetworkCompatibilityOptions(allowHTTP, insecureTLS)
 }
 
 type DownloadRequest struct {
@@ -155,6 +188,7 @@ type DownloadRequest struct {
 	OutputExt            string `json:"output_ext,omitempty"`
 	FilenameFormat       string `json:"filename_format"`
 	Quality              string `json:"quality"`
+	EmbedMetadata        bool   `json:"embed_metadata"`
 	EmbedLyrics          bool   `json:"embed_lyrics"`
 	EmbedMaxQualityCover bool   `json:"embed_max_quality_cover"`
 	TrackNumber          int    `json:"track_number"`
@@ -173,6 +207,7 @@ type DownloadRequest struct {
 	LyricsMode           string `json:"lyrics_mode,omitempty"`
 	UseExtensions        bool   `json:"use_extensions,omitempty"`
 	UseFallback          bool   `json:"use_fallback,omitempty"`
+	SongLinkRegion       string `json:"songlink_region,omitempty"`
 }
 
 type DownloadResponse struct {
@@ -374,11 +409,20 @@ func enrichRequestExtendedMetadata(req *DownloadRequest) {
 	}
 }
 
+func applySongLinkRegionFromRequest(req *DownloadRequest) {
+	if req == nil {
+		return
+	}
+	SetSongLinkRegion(req.SongLinkRegion)
+}
+
 func DownloadTrack(requestJSON string) (string, error) {
 	var req DownloadRequest
 	if err := json.Unmarshal([]byte(requestJSON), &req); err != nil {
 		return errorResponse("Invalid request: " + err.Error())
 	}
+	applySongLinkRegionFromRequest(&req)
+	defer closeOwnedOutputFD(req.OutputFD)
 
 	req.TrackName = strings.TrimSpace(req.TrackName)
 	req.ArtistName = strings.TrimSpace(req.ArtistName)
@@ -453,13 +497,31 @@ func DownloadTrack(requestJSON string) (string, error) {
 			}
 		}
 		err = amazonErr
+	case "deezer":
+		deezerResult, deezerErr := downloadFromDeezer(req)
+		if deezerErr == nil {
+			result = DownloadResult{
+				FilePath:    deezerResult.FilePath,
+				BitDepth:    deezerResult.BitDepth,
+				SampleRate:  deezerResult.SampleRate,
+				Title:       deezerResult.Title,
+				Artist:      deezerResult.Artist,
+				Album:       deezerResult.Album,
+				ReleaseDate: deezerResult.ReleaseDate,
+				TrackNumber: deezerResult.TrackNumber,
+				DiscNumber:  deezerResult.DiscNumber,
+				ISRC:        deezerResult.ISRC,
+				LyricsLRC:   deezerResult.LyricsLRC,
+			}
+		}
+		err = deezerErr
 	case "youtube":
 		youtubeResult, youtubeErr := downloadFromYouTube(req)
 		if youtubeErr == nil {
 			result = DownloadResult{
 				FilePath:    youtubeResult.FilePath,
-				BitDepth:    0, // Lossy format, no bit depth
-				SampleRate:  0, // Lossy format
+				BitDepth:    0,
+				SampleRate:  0,
 				Title:       youtubeResult.Title,
 				Artist:      youtubeResult.Artist,
 				Album:       youtubeResult.Album,
@@ -537,6 +599,11 @@ func DownloadByStrategy(requestJSON string) (string, error) {
 	}
 
 	if req.UseExtensions {
+		// Respect strict mode when auto fallback is disabled:
+		// for built-in providers, route directly to selected service only.
+		if !req.UseFallback && isBuiltInProvider(serviceNormalized) {
+			return DownloadTrack(normalizedJSON)
+		}
 		resp, err := DownloadWithExtensionsJSON(normalizedJSON)
 		if err != nil {
 			return errorResponse(err.Error())
@@ -556,6 +623,8 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 	if err := json.Unmarshal([]byte(requestJSON), &req); err != nil {
 		return errorResponse("Invalid request: " + err.Error())
 	}
+	applySongLinkRegionFromRequest(&req)
+	defer closeOwnedOutputFD(req.OutputFD)
 
 	req.TrackName = strings.TrimSpace(req.TrackName)
 	req.ArtistName = strings.TrimSpace(req.ArtistName)
@@ -571,7 +640,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 
 	enrichRequestExtendedMetadata(&req)
 
-	allServices := []string{"tidal", "qobuz", "amazon"}
+	allServices := []string{"tidal", "qobuz", "amazon", "deezer"}
 	preferredService := req.Service
 	if preferredService == "" {
 		preferredService = "tidal"
@@ -659,6 +728,26 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 				GoLog("[DownloadWithFallback] Amazon error: %v\n", amazonErr)
 			}
 			err = amazonErr
+		case "deezer":
+			deezerResult, deezerErr := downloadFromDeezer(req)
+			if deezerErr == nil {
+				result = DownloadResult{
+					FilePath:    deezerResult.FilePath,
+					BitDepth:    deezerResult.BitDepth,
+					SampleRate:  deezerResult.SampleRate,
+					Title:       deezerResult.Title,
+					Artist:      deezerResult.Artist,
+					Album:       deezerResult.Album,
+					ReleaseDate: deezerResult.ReleaseDate,
+					TrackNumber: deezerResult.TrackNumber,
+					DiscNumber:  deezerResult.DiscNumber,
+					ISRC:        deezerResult.ISRC,
+					LyricsLRC:   deezerResult.LyricsLRC,
+				}
+			} else if !errors.Is(deezerErr, ErrDownloadCancelled) {
+				GoLog("[DownloadWithFallback] Deezer error: %v\n", deezerErr)
+			}
+			err = deezerErr
 		}
 
 		if err != nil && errors.Is(err, ErrDownloadCancelled) {
@@ -910,7 +999,6 @@ func SetDownloadDirectory(path string) error {
 	return setDownloadDir(path)
 }
 
-// AllowDownloadDir adds a directory to the extension file sandbox allowlist.
 func AllowDownloadDir(path string) {
 	if strings.TrimSpace(path) == "" {
 		return
@@ -1139,6 +1227,26 @@ func SearchDeezerAll(query string, trackLimit, artistLimit int, filter string) (
 		return "", err
 	}
 
+	return string(jsonBytes), nil
+}
+
+func GetDeezerRelatedArtists(artistID string, limit int) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	client := GetDeezerClient()
+	artists, err := client.GetRelatedArtists(ctx, artistID, limit)
+	if err != nil {
+		return "", err
+	}
+
+	resp := map[string]interface{}{
+		"artists": artists,
+	}
+	jsonBytes, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
 	return string(jsonBytes), nil
 }
 
@@ -1518,16 +1626,13 @@ func errorResponse(msg string) (string, error) {
 	return string(jsonBytes), nil
 }
 
-// ==================== YOUTUBE PROVIDER (LOSSY ONLY) ====================
-
-// DownloadFromYouTube downloads a track from YouTube via Cobalt API
-// This is a lossy-only provider (Opus 256kbps or MP3 320kbps)
-// It does NOT participate in the lossless fallback chain
 func DownloadFromYouTube(requestJSON string) (string, error) {
 	var req DownloadRequest
 	if err := json.Unmarshal([]byte(requestJSON), &req); err != nil {
 		return errorResponse("Invalid request: " + err.Error())
 	}
+	applySongLinkRegionFromRequest(&req)
+	defer closeOwnedOutputFD(req.OutputFD)
 
 	req.TrackName = strings.TrimSpace(req.TrackName)
 	req.ArtistName = strings.TrimSpace(req.ArtistName)
@@ -1569,20 +1674,14 @@ func DownloadFromYouTube(requestJSON string) (string, error) {
 	return string(jsonBytes), nil
 }
 
-// IsYouTubeURLExport checks if a URL is a YouTube URL (exported for Flutter)
 func IsYouTubeURLExport(urlStr string) bool {
 	return IsYouTubeURL(urlStr)
 }
 
-// ExtractYouTubeVideoIDExport extracts video ID from YouTube URL (exported for Flutter)
 func ExtractYouTubeVideoIDExport(urlStr string) (string, error) {
 	return ExtractYouTubeVideoID(urlStr)
 }
 
-// ==================== COVER & LYRICS SAVE ====================
-
-// DownloadCoverToFile downloads cover art from URL and saves to outputPath.
-// If maxQuality is true, upgrades to highest available resolution.
 func DownloadCoverToFile(coverURL string, outputPath string, maxQuality bool) error {
 	if coverURL == "" {
 		return fmt.Errorf("no cover URL provided")
@@ -1601,7 +1700,6 @@ func DownloadCoverToFile(coverURL string, outputPath string, maxQuality bool) er
 	return nil
 }
 
-// ExtractCoverToFile extracts embedded cover art from audio file and saves to outputPath.
 func ExtractCoverToFile(audioPath string, outputPath string) error {
 	lower := strings.ToLower(audioPath)
 
@@ -1630,7 +1728,6 @@ func ExtractCoverToFile(audioPath string, outputPath string) error {
 	return nil
 }
 
-// FetchAndSaveLyrics fetches lyrics from lrclib and saves as .lrc file.
 func FetchAndSaveLyrics(trackName, artistName, spotifyID string, durationMs int64, outputPath string) error {
 	client := NewLyricsClient()
 	durationSec := float64(durationMs) / 1000.0
@@ -1657,9 +1754,6 @@ func FetchAndSaveLyrics(trackName, artistName, spotifyID string, durationMs int6
 	return nil
 }
 
-// ==================== LYRICS PROVIDER SETTINGS ====================
-
-// SetLyricsProvidersJSON sets the lyrics provider order from a JSON array of provider IDs.
 func SetLyricsProvidersJSON(providersJSON string) error {
 	var providers []string
 	if err := json.Unmarshal([]byte(providersJSON), &providers); err != nil {
@@ -1670,7 +1764,6 @@ func SetLyricsProvidersJSON(providersJSON string) error {
 	return nil
 }
 
-// GetLyricsProvidersJSON returns the current lyrics provider order as JSON.
 func GetLyricsProvidersJSON() (string, error) {
 	providers := GetLyricsProviderOrder()
 	jsonBytes, err := json.Marshal(providers)
@@ -1680,7 +1773,6 @@ func GetLyricsProvidersJSON() (string, error) {
 	return string(jsonBytes), nil
 }
 
-// GetAvailableLyricsProvidersJSON returns metadata about all available lyrics providers.
 func GetAvailableLyricsProvidersJSON() (string, error) {
 	providers := GetAvailableLyricsProviders()
 	jsonBytes, err := json.Marshal(providers)
@@ -1690,7 +1782,6 @@ func GetAvailableLyricsProvidersJSON() (string, error) {
 	return string(jsonBytes), nil
 }
 
-// SetLyricsFetchOptionsJSON sets lyrics provider fetch options.
 func SetLyricsFetchOptionsJSON(optionsJSON string) error {
 	opts := GetLyricsFetchOptions()
 	if strings.TrimSpace(optionsJSON) != "" {
@@ -1703,7 +1794,6 @@ func SetLyricsFetchOptionsJSON(optionsJSON string) error {
 	return nil
 }
 
-// GetLyricsFetchOptionsJSON returns current lyrics provider fetch options.
 func GetLyricsFetchOptionsJSON() (string, error) {
 	opts := GetLyricsFetchOptions()
 	jsonBytes, err := json.Marshal(opts)
@@ -2260,6 +2350,8 @@ func DownloadWithExtensionsJSON(requestJSON string) (string, error) {
 	if err := json.Unmarshal([]byte(requestJSON), &req); err != nil {
 		return "", fmt.Errorf("invalid request: %w", err)
 	}
+	applySongLinkRegionFromRequest(&req)
+	defer closeOwnedOutputFD(req.OutputFD)
 
 	req.TrackName = strings.TrimSpace(req.TrackName)
 	req.ArtistName = strings.TrimSpace(req.ArtistName)
@@ -3141,7 +3233,10 @@ func callExtensionFunctionJSON(extensionID, functionName string, timeout time.Du
 		return "", fmt.Errorf("extension '%s' is disabled", extensionID)
 	}
 
-	provider := NewExtensionProviderWrapper(ext)
+	// Goja runtime is not thread-safe; guard direct extension.*() calls with VMMu
+	// to avoid races with other provider calls (e.g. getAlbum/getPlaylist).
+	ext.VMMu.Lock()
+	defer ext.VMMu.Unlock()
 
 	script := fmt.Sprintf(`
 		(function() {
@@ -3152,7 +3247,7 @@ func callExtensionFunctionJSON(extensionID, functionName string, timeout time.Du
 		})()
 	`, functionName, functionName)
 
-	result, err := RunWithTimeoutAndRecover(provider.vm, script, timeout)
+	result, err := RunWithTimeoutAndRecover(ext.VM, script, timeout)
 	if err != nil {
 		return "", fmt.Errorf("%s failed: %w", functionName, err)
 	}

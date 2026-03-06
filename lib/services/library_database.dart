@@ -95,39 +95,45 @@ class LocalLibraryItem {
       );
 
   /// Create a unique key for matching tracks
-  String get matchKey => '${trackName.toLowerCase()}|${artistName.toLowerCase()}';
-  String get albumKey => '${albumName.toLowerCase()}|${(albumArtist ?? artistName).toLowerCase()}';
+  String get matchKey =>
+      '${trackName.toLowerCase()}|${artistName.toLowerCase()}';
+  String get albumKey =>
+      '${albumName.toLowerCase()}|${(albumArtist ?? artistName).toLowerCase()}';
 }
 
 class LibraryDatabase {
   static final LibraryDatabase instance = LibraryDatabase._init();
   static Database? _database;
-  
+
   LibraryDatabase._init();
-  
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('local_library.db');
     return _database!;
   }
-  
+
   Future<Database> _initDB(String fileName) async {
     final dbPath = await getApplicationDocumentsDirectory();
     final path = join(dbPath.path, fileName);
-    
+
     _log.i('Initializing library database at: $path');
-    
+
     return await openDatabase(
       path,
       version: 4, // Bumped version for bitrate column
+      onConfigure: (db) async {
+        await db.rawQuery('PRAGMA journal_mode = WAL');
+        await db.execute('PRAGMA synchronous = NORMAL');
+      },
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
-  
+
   Future<void> _createDB(Database db, int version) async {
     _log.i('Creating library database schema v$version');
-    
+
     await db.execute('''
       CREATE TABLE library (
         id TEXT PRIMARY KEY,
@@ -151,37 +157,43 @@ class LibraryDatabase {
         format TEXT
       )
     ''');
-    
+
     await db.execute('CREATE INDEX idx_library_isrc ON library(isrc)');
-    await db.execute('CREATE INDEX idx_library_track_artist ON library(track_name, artist_name)');
-    await db.execute('CREATE INDEX idx_library_album ON library(album_name, album_artist)');
-    await db.execute('CREATE INDEX idx_library_file_path ON library(file_path)');
-    
+    await db.execute(
+      'CREATE INDEX idx_library_track_artist ON library(track_name, artist_name)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_library_album ON library(album_name, album_artist)',
+    );
+    await db.execute(
+      'CREATE INDEX idx_library_file_path ON library(file_path)',
+    );
+
     _log.i('Library database schema created with indexes');
   }
-  
+
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     _log.i('Upgrading library database from v$oldVersion to v$newVersion');
-    
+
     if (oldVersion < 2) {
       // Add cover_path column
       await db.execute('ALTER TABLE library ADD COLUMN cover_path TEXT');
       _log.i('Added cover_path column');
     }
-    
+
     if (oldVersion < 3) {
       // Add file_mod_time column for incremental scanning
       await db.execute('ALTER TABLE library ADD COLUMN file_mod_time INTEGER');
       _log.i('Added file_mod_time column for incremental scanning');
     }
-    
+
     if (oldVersion < 4) {
       // Add bitrate column for lossy format quality info
       await db.execute('ALTER TABLE library ADD COLUMN bitrate INTEGER');
       _log.i('Added bitrate column for lossy format quality');
     }
   }
-  
+
   Map<String, dynamic> _jsonToDbRow(Map<String, dynamic> json) {
     return {
       'id': json['id'],
@@ -205,7 +217,7 @@ class LibraryDatabase {
       'format': json['format'],
     };
   }
-  
+
   Map<String, dynamic> _dbRowToJson(Map<String, dynamic> row) {
     return {
       'id': row['id'],
@@ -229,9 +241,9 @@ class LibraryDatabase {
       'format': row['format'],
     };
   }
-  
+
   // CRUD Operations
-  
+
   Future<void> upsert(Map<String, dynamic> json) async {
     final db = await database;
     await db.insert(
@@ -240,12 +252,12 @@ class LibraryDatabase {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
-  
+
   Future<void> upsertBatch(List<Map<String, dynamic>> items) async {
     if (items.isEmpty) return;
     final db = await database;
     final batch = db.batch();
-    
+
     for (final json in items) {
       batch.insert(
         'library',
@@ -253,11 +265,11 @@ class LibraryDatabase {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
-    
+
     await batch.commit(noResult: true);
     _log.i('Batch inserted ${items.length} items');
   }
-  
+
   Future<List<Map<String, dynamic>>> getAll({int? limit, int? offset}) async {
     final db = await database;
     final rows = await db.query(
@@ -268,7 +280,7 @@ class LibraryDatabase {
     );
     return rows.map(_dbRowToJson).toList();
   }
-  
+
   Future<Map<String, dynamic>?> getById(String id) async {
     final db = await database;
     final rows = await db.query(
@@ -280,7 +292,7 @@ class LibraryDatabase {
     if (rows.isEmpty) return null;
     return _dbRowToJson(rows.first);
   }
-  
+
   Future<Map<String, dynamic>?> getByIsrc(String isrc) async {
     final db = await database;
     final rows = await db.query(
@@ -292,7 +304,7 @@ class LibraryDatabase {
     if (rows.isEmpty) return null;
     return _dbRowToJson(rows.first);
   }
-  
+
   Future<bool> existsByIsrc(String isrc) async {
     final db = await database;
     final result = await db.rawQuery(
@@ -301,7 +313,7 @@ class LibraryDatabase {
     );
     return result.isNotEmpty;
   }
-  
+
   Future<List<Map<String, dynamic>>> findByTrackAndArtist(
     String trackName,
     String artistName,
@@ -314,7 +326,7 @@ class LibraryDatabase {
     );
     return rows.map(_dbRowToJson).toList();
   }
-  
+
   Future<Map<String, dynamic>?> findExisting({
     String? isrc,
     String? trackName,
@@ -325,42 +337,42 @@ class LibraryDatabase {
       final byIsrc = await getByIsrc(isrc);
       if (byIsrc != null) return byIsrc;
     }
-    
+
     // Then try name matching
     if (trackName != null && artistName != null) {
       final matches = await findByTrackAndArtist(trackName, artistName);
       if (matches.isNotEmpty) return matches.first;
     }
-    
+
     return null;
   }
-  
+
   Future<Set<String>> getAllIsrcs() async {
     final db = await database;
     final rows = await db.rawQuery(
-      'SELECT isrc FROM library WHERE isrc IS NOT NULL AND isrc != ""'
+      'SELECT isrc FROM library WHERE isrc IS NOT NULL AND isrc != ""',
     );
     return rows.map((r) => r['isrc'] as String).toSet();
   }
-  
+
   Future<Set<String>> getAllTrackKeys() async {
     final db = await database;
     final rows = await db.rawQuery(
-      'SELECT LOWER(track_name) || "|" || LOWER(artist_name) as match_key FROM library'
+      'SELECT LOWER(track_name) || "|" || LOWER(artist_name) as match_key FROM library',
     );
     return rows.map((r) => r['match_key'] as String).toSet();
   }
-  
+
   Future<void> deleteByPath(String filePath) async {
     final db = await database;
     await db.delete('library', where: 'file_path = ?', whereArgs: [filePath]);
   }
-  
+
   Future<void> delete(String id) async {
     final db = await database;
     await db.delete('library', where: 'id = ?', whereArgs: [id]);
   }
-  
+
   Future<int> cleanupMissingFiles() async {
     final db = await database;
     final rows = await db.query('library', columns: ['id', 'file_path']);
@@ -409,44 +421,48 @@ class LibraryDatabase {
     }
     return removed;
   }
-  
+
   Future<void> clearAll() async {
     final db = await database;
     await db.delete('library');
     _log.i('Cleared all library data');
   }
-  
+
   Future<int> getCount() async {
     final db = await database;
     final result = await db.rawQuery('SELECT COUNT(*) as count FROM library');
     return Sqflite.firstIntValue(result) ?? 0;
   }
-  
-  Future<List<Map<String, dynamic>>> search(String query, {int limit = 50}) async {
+
+  Future<List<Map<String, dynamic>>> search(
+    String query, {
+    int limit = 50,
+  }) async {
     final db = await database;
     final searchQuery = '%${query.toLowerCase()}%';
     final rows = await db.query(
       'library',
-      where: 'LOWER(track_name) LIKE ? OR LOWER(artist_name) LIKE ? OR LOWER(album_name) LIKE ?',
+      where:
+          'LOWER(track_name) LIKE ? OR LOWER(artist_name) LIKE ? OR LOWER(album_name) LIKE ?',
       whereArgs: [searchQuery, searchQuery, searchQuery],
       orderBy: 'track_name',
       limit: limit,
     );
     return rows.map(_dbRowToJson).toList();
   }
-  
+
   Future<void> close() async {
     final db = await database;
     await db.close();
     _database = null;
   }
-  
+
   /// Get all file paths with their modification times for incremental scanning
   /// Returns a map of filePath -> fileModTime (unix timestamp in milliseconds)
   Future<Map<String, int>> getFileModTimes() async {
     final db = await database;
     final rows = await db.rawQuery(
-      'SELECT file_path, COALESCE(file_mod_time, 0) AS file_mod_time FROM library'
+      'SELECT file_path, COALESCE(file_mod_time, 0) AS file_mod_time FROM library',
     );
     final result = <String, int>{};
     for (final row in rows) {
@@ -456,7 +472,7 @@ class LibraryDatabase {
     }
     return result;
   }
-  
+
   /// Update file_mod_time for existing rows using file_path as key.
   Future<void> updateFileModTimes(Map<String, int> fileModTimes) async {
     if (fileModTimes.isEmpty) return;
@@ -472,14 +488,14 @@ class LibraryDatabase {
     }
     await batch.commit(noResult: true);
   }
-  
+
   /// Get all file paths in the library (for detecting deleted files)
   Future<Set<String>> getAllFilePaths() async {
     final db = await database;
     final rows = await db.rawQuery('SELECT file_path FROM library');
     return rows.map((r) => r['file_path'] as String).toSet();
   }
-  
+
   /// Delete multiple items by their file paths
   Future<int> deleteByPaths(List<String> filePaths) async {
     if (filePaths.isEmpty) return 0;

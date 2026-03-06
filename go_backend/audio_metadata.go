@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1127,16 +1128,32 @@ func GetOggQuality(filePath string) (*OggQuality, error) {
 			// Opus always uses 48kHz granule position internally
 			totalSamples := granule - int64(preSkip)
 			if totalSamples > 0 {
-				quality.Duration = int(totalSamples / 48000)
+				durationSec := float64(totalSamples) / 48000.0
+				if durationSec > 0 {
+					quality.Duration = int(math.Round(durationSec))
+					quality.Bitrate = int(float64(fileSize*8) / durationSec)
+				}
 			}
 		} else if quality.SampleRate > 0 {
-			quality.Duration = int(granule / int64(quality.SampleRate))
+			durationSec := float64(granule) / float64(quality.SampleRate)
+			if durationSec > 0 {
+				quality.Duration = int(math.Round(durationSec))
+				quality.Bitrate = int(float64(fileSize*8) / durationSec)
+			}
 		}
 	}
 
-	// Calculate average bitrate from file size and actual duration
-	if quality.Duration > 0 {
+	// Fallback bitrate estimate if duration exists but bitrate couldn't be derived.
+	if quality.Bitrate <= 0 && quality.Duration > 0 {
 		quality.Bitrate = int(fileSize * 8 / int64(quality.Duration))
+	}
+	// Guard against obviously invalid values from corrupted/unreliable granule reads.
+	if quality.Duration > 24*60*60 {
+		quality.Duration = 0
+		quality.Bitrate = 0
+	}
+	if quality.Bitrate > 0 && quality.Bitrate < 8000 {
+		quality.Bitrate = 0
 	}
 
 	return quality, nil
@@ -1162,21 +1179,35 @@ func readLastOggGranulePosition(file *os.File, fileSize int64) int64 {
 	}
 	buf = buf[:n]
 
-	// Scan backwards for "OggS" magic
-	lastPageOffset := -1
 	for i := n - 4; i >= 0; i-- {
-		if buf[i] == 'O' && buf[i+1] == 'g' && buf[i+2] == 'g' && buf[i+3] == 'S' {
-			lastPageOffset = i
-			break
+		if buf[i] != 'O' || buf[i+1] != 'g' || buf[i+2] != 'g' || buf[i+3] != 'S' {
+			continue
 		}
+		if i+27 > n {
+			continue
+		}
+		// Validate minimal header fields to avoid false positives inside payload bytes.
+		version := buf[i+4]
+		headerType := buf[i+5]
+		if version != 0 || headerType > 0x07 {
+			continue
+		}
+		segmentCount := int(buf[i+26])
+		headerLen := 27 + segmentCount
+		if i+headerLen > n {
+			continue
+		}
+		payloadLen := 0
+		for s := 0; s < segmentCount; s++ {
+			payloadLen += int(buf[i+27+s])
+		}
+		if i+headerLen+payloadLen > n {
+			continue
+		}
+		// Granule position is at bytes 6-13 of the Ogg page header (little-endian int64).
+		return int64(binary.LittleEndian.Uint64(buf[i+6 : i+14]))
 	}
-
-	if lastPageOffset < 0 || lastPageOffset+14 > n {
-		return 0
-	}
-
-	// Granule position is at bytes 6-13 of the Ogg page header (little-endian int64)
-	return int64(binary.LittleEndian.Uint64(buf[lastPageOffset+6 : lastPageOffset+14]))
+	return 0
 }
 
 // =============================================================================

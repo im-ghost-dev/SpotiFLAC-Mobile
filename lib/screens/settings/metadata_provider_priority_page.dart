@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
-import 'package:spotiflac_android/utils/app_bar_layout.dart';
+import 'package:spotiflac_android/widgets/priority_settings_scaffold.dart';
 
 class MetadataProviderPriorityPage extends ConsumerStatefulWidget {
   const MetadataProviderPriorityPage({super.key});
 
   @override
-  ConsumerState<MetadataProviderPriorityPage> createState() => _MetadataProviderPriorityPageState();
+  ConsumerState<MetadataProviderPriorityPage> createState() =>
+      _MetadataProviderPriorityPageState();
 }
 
-class _MetadataProviderPriorityPageState extends ConsumerState<MetadataProviderPriorityPage> {
+class _MetadataProviderPriorityPageState
+    extends ConsumerState<MetadataProviderPriorityPage> {
   late List<String> _providers;
   bool _hasChanges = false;
 
@@ -23,8 +25,10 @@ class _MetadataProviderPriorityPageState extends ConsumerState<MetadataProviderP
 
   void _loadProviders() {
     final extState = ref.read(extensionProvider);
-    final allProviders = ref.read(extensionProvider.notifier).getAllMetadataProviders();
-    
+    final allProviders = ref
+        .read(extensionProvider.notifier)
+        .getAllMetadataProviders();
+
     if (extState.metadataProviderPriority.isNotEmpty) {
       _providers = List.from(extState.metadataProviderPriority);
       for (final provider in allProviders) {
@@ -40,142 +44,43 @@ class _MetadataProviderPriorityPageState extends ConsumerState<MetadataProviderP
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = normalizedHeaderTopPadding(context);
-
-    return PopScope(
-      canPop: !_hasChanges,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _confirmDiscard(context);
-        if (shouldPop && context.mounted) {
-          Navigator.pop(context);
-        }
-      },
-      child: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            SliverAppBar(
-              expandedHeight: 120 + topPadding,
-              collapsedHeight: kToolbarHeight,
-              floating: false,
-              pinned: true,
-              backgroundColor: colorScheme.surface,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () async {
-                  if (_hasChanges) {
-                    final shouldPop = await _confirmDiscard(context);
-                    if (shouldPop && context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  } else {
-                    Navigator.pop(context);
-                  }
-                },
-              ),
-              actions: [
-                if (_hasChanges)
-                  TextButton(
-                    onPressed: _saveChanges,
-                    child: Text(context.l10n.dialogSave),
-                  ),
-              ],
-              flexibleSpace: LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxHeight = 120 + topPadding;
-                  final minHeight = kToolbarHeight + topPadding;
-                  final expandRatio = ((constraints.maxHeight - minHeight) /
-                          (maxHeight - minHeight))
-                      .clamp(0.0, 1.0);
-                  final leftPadding = 56 - (32 * expandRatio);
-                  return FlexibleSpaceBar(
-                    expandedTitleScale: 1.0,
-                    titlePadding: EdgeInsets.only(left: leftPadding, bottom: 16),
-                    title: Text(
-                      context.l10n.metadataProviderPriorityTitle,
-                      style: TextStyle(
-                        fontSize: 20 + (8 * expandRatio),
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  context.l10n.metadataProviderPriorityDescription,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverReorderableList(
-                itemCount: _providers.length,
-                itemBuilder: (context, index) {
-                  final provider = _providers[index];
-                  return _MetadataProviderItem(
-                    key: ValueKey(provider),
-                    provider: provider,
-                    index: index,
-                    isFirst: index == 0,
-                    isLast: index == _providers.length - 1,
-                  );
-                },
-                onReorder: (oldIndex, newIndex) {
-                  setState(() {
-                    if (newIndex > oldIndex) {
-                      newIndex -= 1;
-                    }
-                    final item = _providers.removeAt(oldIndex);
-                    _providers.insert(newIndex, item);
-                    _hasChanges = true;
-                  });
-                },
-              ),
-            ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.tertiaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 20, color: colorScheme.tertiary),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          context.l10n.metadataProviderPriorityInfo,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onTertiaryContainer,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
+    return PrioritySettingsScaffold(
+      hasChanges: _hasChanges,
+      title: context.l10n.metadataProviderPriorityTitle,
+      description: context.l10n.metadataProviderPriorityDescription,
+      descriptionPadding: const EdgeInsets.all(16),
+      infoText: context.l10n.metadataProviderPriorityInfo,
+      saveLabel: context.l10n.dialogSave,
+      onSave: _saveChanges,
+      onConfirmDiscard: _confirmDiscard,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          sliver: SliverReorderableList(
+            itemCount: _providers.length,
+            itemBuilder: (context, index) {
+              final provider = _providers[index];
+              return _MetadataProviderItem(
+                key: ValueKey(provider),
+                provider: provider,
+                index: index,
+                isFirst: index == 0,
+                isLast: index == _providers.length - 1,
+              );
+            },
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                if (newIndex > oldIndex) {
+                  newIndex -= 1;
+                }
+                final item = _providers.removeAt(oldIndex);
+                _providers.insert(newIndex, item);
+                _hasChanges = true;
+              });
+            },
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -201,7 +106,9 @@ class _MetadataProviderPriorityPageState extends ConsumerState<MetadataProviderP
   }
 
   Future<void> _saveChanges() async {
-    await ref.read(extensionProvider.notifier).setMetadataProviderPriority(_providers);
+    await ref
+        .read(extensionProvider.notifier)
+        .setMetadataProviderPriority(_providers);
     setState(() {
       _hasChanges = false;
     });
@@ -300,10 +207,7 @@ class _MetadataProviderItem extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.drag_handle,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                Icon(Icons.drag_handle, color: colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -312,7 +216,10 @@ class _MetadataProviderItem extends StatelessWidget {
     );
   }
 
-  _MetadataProviderInfo _getProviderInfo(BuildContext context, String provider) {
+  _MetadataProviderInfo _getProviderInfo(
+    BuildContext context,
+    String provider,
+  ) {
     switch (provider) {
       case 'deezer':
         return _MetadataProviderInfo(

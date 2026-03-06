@@ -1,5 +1,162 @@
 # Changelog
 
+## [3.7.1] - 2026-03-06
+
+### Added
+
+- **Deezer Download Service**: Deezer is now available as a built-in download service (FLAC CD Quality).
+- **Smarter YouTube Downloads**: If the YouTube Music extension is installed, the app now uses it first to find the correct song — more accurate than SongLink, especially for new releases.
+- **Songs-Only Search Filter**: YouTube Music extension search now filters results server-side, so you only get actual songs — no music videos or covers mixed in.
+- **Qobuz Squid.wtf Fallback**: Added Squid.wtf as an additional Qobuz download provider.
+- **Qobuz Search Fallback**: If Qobuz API search returns nothing, the app now tries the Qobuz web store as a backup to find the track.
+- **Better ISRC Lookup**: Tracks can now be resolved via ISRC even without a Spotify ID, using Deezer as an intermediary.
+
+### Fixed
+
+- **Download Queue Stability**: Fixed duplicate queue item IDs, cancel not working reliably, and "Clear All" not properly stopping active downloads.
+- **Queue Restore on Restart**: Duplicate or broken queue item IDs are now auto-fixed when the app restarts.
+
+### Changed
+
+- **Update Checker**: The app can now detect updates across all versions, not just within the same major version.
+- **Localization Cleanup**: Cleaned up and consolidated translation files across all 13 supported languages.
+
+---
+
+## [3.7.0] - 2026-03-04
+
+Hey everyone, thank you so much for sticking with SpotiFLAC Mobile.
+
+Starting from this release, we're rolling the version back from **v4.x to v3.x**.
+
+### Removed
+
+- **Internal Audio Player** — Removed `just_audio`, `audio_service`, and `audio_session` dependencies entirely. The internal playback engine (smart queue, media notification, shuffle/repeat, lyrics sync, prefetch, playback state persistence) has been completely removed. Playback now delegates to the system's external player.
+- **PlaybackItem Model** — No longer needed without internal playback.
+- **MiniPlayerBar Widget** — Removed the in-app mini player UI.
+- **Media Notification Controls** — Removed notification drawables (`ic_stat_favorite`, `ic_stat_favorite_border`) and the `keep.xml` resource file.
+- **Player Mode Setting** — The `playerMode` setting has been removed since external player is now the only mode.
+- **Online Playback Feature** — Online streaming mode, DASH pipeline, and related components introduced in v4.0.0 are gone from the main branch.
+
+### Changed
+
+- **MainActivity** now extends `FlutterFragmentActivity` directly (previously `AudioServiceFragmentActivity`).
+- **PlaybackController** simplified from ~1200 lines to ~87 lines — now only resolves local file paths and opens them via external player.
+- **ProGuard rules** cleaned up — removed audio_service/just_audio/audio_session rules.
+- **Qobuz** migrated to MusicDL API (Thanks @Ruubiiiii for Hosting the API).
+
+### Note
+There are three main reasons behind this decision:
+
+   1. **Respecting the API providers** — After giving it some thought, we realized that the streaming feature was indirectly hurting the API providers who have been generous enough to make their services available. They already offer streaming directly on their own websites, and it only feels right to direct streaming usage back to their platforms.
+
+   2. **Long-term sustainability** — We want SpotiFLAC to be around for as long as possible. Keeping certain features in the app could attract unwanted attention and put the project's continued existence at risk. Removing them is a proactive step to keep things running smoothly for everyone.
+
+**Still want online playback? Check out these services:**
+- [DabMusic](https://dabmusic.xyz)
+- [SquidWTF](https://tidal.squid.wtf)
+
+Thank you for your understanding and continued support. This decision was made to ensure the long-term sustainability of the app and to respect the ecosystem that has been supporting SpotiFLAC all along. You guys are the best, and we truly appreciate each and every one of you!
+
+---
+
+## [3.6.0] - 2026-02-19
+
+### Added
+
+- **Library Tab Redesign**: Wishlist, Loved, and individual Playlist collections now appear as unified list/grid items in the "All" tab alongside tracks, replacing the old "My Folders" horizontal card section
+- **Drag-and-Drop Track Categorization**: Long-press-drag tracks onto playlist items to add them to that playlist; when multiple tracks are selected and one is dragged, all selected tracks are added to the target playlist
+  - Drag feedback widget displays multi-select count badge
+- **Playlist Multi-Select Deletion**: Long-press playlists to enter selection mode, select multiple playlists, and batch-delete all selected at once via a dedicated selection bottom bar
+- **Track Categorization System**: Tracks added to any playlist are automatically hidden from the main tracks list; removing a track from a playlist or deleting the playlist makes the track reappear — no actual file deletion ever occurs
+- **Create Playlist Button**: New "+" `TextButton.icon` in Library tab header with dynamic theme colors, replacing the old "Select" button
+- **Track Options Bottom Sheet**: Rewrote `TrackCollectionQuickActions` from inline action buttons to a single styled bottom sheet with track header (cover, title, artist), divider, and option tiles matching `DownloadServicePicker` visual style
+- **Library Tracks Folder SliverAppBar**: Wishlist, Loved, and Playlist detail screens now feature a collapsible SliverAppBar with cover art (45% viewport height, parallax, gradient overlay), mode-specific icons (bookmark/heart/queue_music), title, and track count badge
+- **Custom Playlist Cover Images**: Users can set custom cover images for playlists via long-press menu or camera icon in SliverAppBar
+  - Covers stored locally in app support directory with priority: custom cover > first track URL > icon fallback
+  - Cover options bottom sheet with change/remove actions
+  - Playlist list screen shows cover thumbnails
+- **Long-Press Context Menus**: Track tiles in library folders and playlist list items now use long-press for styled bottom sheet context menus instead of trailing icon buttons, matching platform conventions
+- **Wishlist Quick Download**: Tapping a track in Wishlist opens quality picker (respects "Ask quality before download" setting) and starts download
+- **Playlist Track Playback**: Tapping a downloaded track in a Playlist opens it in the device's external music player via `openFile()` with file existence check
+- **Collapsible AppBar on Playlist List Screen**: Playlist list screen now uses a collapsible SliverAppBar matching Settings sub-page style (animated title size 20→28px, animated left padding 56→24px) for visual consistency
+- **`UnifiedLibraryItem.collectionKey` Getter**: Efficient playlist membership checking without constructing a full `Track` object
+- **Multi-select Share**: Share multiple downloaded/local tracks at once from the selection bottom bar
+  - Supports SAF content URIs via native `ACTION_SEND_MULTIPLE` intent
+  - Supports regular file paths via SharePlus
+  - Available in Downloaded Album, Local Album, and Queue tab screens
+- **Multi-select Batch Convert**: Convert multiple selected tracks to MP3 or Opus in one operation
+  - Bottom sheet UI with format (MP3 / Opus) and bitrate (128k / 192k / 256k / 320k) selection
+  - Full SAF support: copies to temp, converts, writes back, deletes original, updates history
+  - Progress and result snackbar feedback during conversion
+  - Available in Downloaded Album, Local Album, and Queue tab screens
+- **Native `shareMultipleContentUris`**: New Android `ACTION_SEND_MULTIPLE` handler in `MainActivity` for sharing multiple SAF content URIs
+- **Localization**: Added selection share/convert strings to all 13 supported locales (`selectionShareCount`, `selectionShareNoFiles`, `selectionConvertCount`, `selectionConvertNoConvertible`, `selectionBatchConvertConfirmTitle`, `selectionBatchConvertConfirmMessage`, `selectionBatchConvertProgress`, `selectionBatchConvertSuccess`)
+- **Localization**: Added library collection l10n keys (`trackOptionAddToLoved`, `trackOptionRemoveFromLoved`, `trackOptionAddToWishlist`, `trackOptionRemoveFromWishlist`, `libraryTracksUnit`, `collectionPlaylistChangeCover`, `collectionPlaylistRemoveCover`)
+- **Global Network Compatibility Mode**: New Download settings toggle to help restricted/ISP-filtered networks
+  - Applies to backend API requests (not SongLink-only)
+  - Enables HTTP scheme fallback and optional insecure TLS behavior in one switch
+  - Synced end-to-end across Flutter settings, platform channel (Android/iOS), and Go backend
+
+### Changed
+
+- **Removed "My Folders" Section**: Horizontal card section removed from Library tab header; collections are now inline items in the unified main list/grid
+- **Playlist Subtitle Simplified**: Playlist items now show "N tracks" instead of "Playlist • N tracks"
+- **Pinned App Bar on All Detail Screens**: `SliverAppBar` changed from `pinned: false` to `pinned: true` in 6 detail screens (album, downloaded album, local album, playlist, track metadata, library tracks folder) so the app bar stays visible when scrolling
+- **Local Album Multi-select Action Updated**: Replaced batch `Share` action with batch `Re-enrich`
+  - Local album selection bar now uses `Re-enrich` + `Convert` actions
+  - Added batch re-enrich processing for local tracks (FLAC native path and MP3/Opus FFmpeg path, including SAF write-back flow)
+  - After batch re-enrich completes, local library is refreshed via incremental scan so updated metadata appears in UI immediately
+- **Queue Multi-select Local Action Updated**: Queue selection bar now switches the first action to `Re-enrich` when selected items are local-only
+  - If selection contains downloaded or mixed items, action remains `Share`
+  - Local-only selection now supports batch re-enrich with the same native/FFmpeg + SAF flow and auto-refreshes local library metadata after completion
+- **SongLink Network Option Scope Expanded**: The previous SongLink compatibility path now routes through global network compatibility controls so all supported backend API clients can benefit under problematic networks
+- **Removed Per-Track Action Buttons**: Album, playlist, home, artist, and search screens no longer show individual download/add buttons on each track tile; all actions accessed via `TrackCollectionQuickActions` bottom sheet
+- **Loved SliverAppBar Always Shows Heart Icon**: Loved tracks folder always displays the heart icon as cover, never uses first track's cover art (like Spotify's Liked Songs)
+- **Wishlist Long-Press Menu Conditional Actions**: "Add to Playlist" option only appears when the track is already downloaded
+- **Loved Track Tap Disabled**: Tapping a track in the Loved folder performs no action (long-press for options only)
+- **Removed Duplicate Create Playlist Button**: Removed `+` IconButton from playlist list screen AppBar since the FAB already serves the same purpose
+- **`coverImagePath` Field on `UserPlaylistCollection`**: Model now supports nullable custom cover path with `copyWith` using `String? Function()?` pattern for explicit null assignment
+
+### Fixed
+
+- **Local Cover Path Handling**: All cover image renderers (Library tab, playlist detail screen hero cover, per-track tiles, options bottom sheet) now detect whether `coverUrl` is a URL or local file path and use `Image.file` for local paths instead of `CachedNetworkImage`
+- **Empty Playlists Now Clickable**: Empty playlist items in Library tab can now be tapped to navigate to their detail screen
+- **RenderFlex Overflow**: Fixed overflow in unified library item Row layout when track metadata text was too long
+- **SAF FD Permission Denied on Tidal Downloads**: Fixed `failed to create file: open /proc/self/fd/*: permission denied` on some devices/providers
+  - Android SAF bridge now hands off detached raw FD (`output_fd`) to Go instead of forcing procfs path reopen
+  - Go output writer includes safer procfs fallback behavior for providers that reject truncate semantics
+- **Batch Convert Lyrics Embedding Gap**: Batch convert in Downloaded Album, Local Album, and Queue now preserves/adds lyrics consistently like single convert
+  - Reuses embedded lyrics when available
+  - Falls back to sidecar `.lrc` when present
+  - Falls back to online lyrics fetch and injects into conversion metadata when embedding is enabled
+
+---
+
+## [3.6.9] - 2026-02-17
+
+### Added
+
+- **YouTube Bitrate Presets**: YouTube bitrate selection now uses supported presets only
+  - Opus: 128 / 256 kbps
+  - MP3: 128 / 256 / 320 kbps
+- **Go Test Coverage for YouTube Quality Parsing**: Added tests for supported-bitrate normalization behavior
+- **Localization for YouTube Bitrate UI**: Added localized strings (EN/ID) for YouTube bitrate titles and labels
+
+### Fixed
+
+- **Cover Image Cache Clear Not Working**: Clearing "Cover image cache" now performs a full on-disk wipe, clears in-memory image cache, and reinitializes cache manager state
+  - Prevents stale/orphaned cache files from keeping the same storage usage after clear
+- **YouTube Queue Fallback Quality Mismatch**: Queue fallback now normalizes YouTube quality IDs so conversion paths use valid bitrate format IDs
+
+### Changed
+
+- **Default Lyrics Behavior**: `Apple/QQ Multi-Person Word-by-Word` is now OFF by default for new installs
+- **Removed Dynamic YouTube Bitrate Mode**: Arbitrary values are now normalized to nearest supported Spotube preset across settings, picker, queue fallback, and Go backend parser
+- **Lyrics Embedding Control**: Users can now disable the embedded-lyrics process from settings (`Embed Lyrics` off)
+
+---
+
 ## [3.6.8] - 2026-02-14
 
 ### Added

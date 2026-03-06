@@ -30,14 +30,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   bool _isLoading = false;
   int _androidSdkVersion = 0;
 
-  // Spotify form
-  final _clientIdController = TextEditingController();
-  final _clientSecretController = TextEditingController();
-  bool _useSpotifyApi = false;
-  bool _showClientSecret = false;
-
-  // We add 1 for the Welcome step
-  int get _totalSteps => (_androidSdkVersion >= 33 ? 4 : 3) + 1;
+  int get _totalSteps => _androidSdkVersion >= 33 ? 4 : 3;
 
   @override
   void initState() {
@@ -48,8 +41,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _clientIdController.dispose();
-    _clientSecretController.dispose();
     super.dispose();
   }
 
@@ -291,6 +282,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     await showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -339,8 +331,13 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(validation.errorReason ?? 'Invalid folder selected'),
-                            backgroundColor: Theme.of(context).colorScheme.error,
+                            content: Text(
+                              validation.errorReason ??
+                                  'Invalid folder selected',
+                            ),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                             duration: const Duration(seconds: 4),
                           ),
                         );
@@ -402,20 +399,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
             );
       }
 
-      if (_useSpotifyApi &&
-          _clientIdController.text.trim().isNotEmpty &&
-          _clientSecretController.text.trim().isNotEmpty) {
-        ref
-            .read(settingsProvider.notifier)
-            .setSpotifyCredentials(
-              _clientIdController.text.trim(),
-              _clientSecretController.text.trim(),
-            );
-        ref.read(settingsProvider.notifier).setMetadataSource('spotify');
-      } else {
-        ref.read(settingsProvider.notifier).setMetadataSource('deezer');
-      }
-
+      ref.read(settingsProvider.notifier).setMetadataSource('deezer');
       ref.read(settingsProvider.notifier).setFirstLaunchComplete();
 
       if (mounted) context.go('/tutorial');
@@ -474,8 +458,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
           return _notificationPermissionGranted;
         case 2:
           return _selectedDirectory != null;
-        case 3:
-          return false; // Spotify is last/submit
       }
     } else {
       switch (logicStep) {
@@ -483,8 +465,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
           return _storagePermissionGranted;
         case 1:
           return _selectedDirectory != null;
-        case 2:
-          return false; // Spotify
       }
     }
     return false;
@@ -561,7 +541,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   if (_androidSdkVersion >= 33)
                     _buildNotificationStep(colorScheme),
                   _buildDirectoryStep(colorScheme),
-                  _buildSpotifyStep(colorScheme),
                 ],
               ),
             ),
@@ -581,12 +560,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
               icon: const SizedBox.shrink(), // Custom layout
             )
           : FloatingActionButton.extended(
-              onPressed:
-                  (!_useSpotifyApi ||
-                      (_clientIdController.text.isNotEmpty &&
-                          _clientSecretController.text.isNotEmpty))
-                  ? _completeSetup
-                  : null,
+              onPressed: _isLoading ? null : _completeSetup,
               label: _isLoading
                   ? SizedBox(
                       width: 20,
@@ -756,112 +730,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSpotifyStep(ColorScheme colorScheme) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Icon(Icons.api, size: 48, color: colorScheme.primary),
-          const SizedBox(height: 24),
-          Text(
-            context.l10n.setupSpotifyApiOptional,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.l10n.setupSpotifyApiDescription,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerHighest,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  value: _useSpotifyApi,
-                  onChanged: (v) => setState(() => _useSpotifyApi = v),
-                  title: Text(context.l10n.setupUseSpotifyApi),
-                  subtitle: Text(
-                    _useSpotifyApi
-                        ? context.l10n.setupEnterCredentialsBelow
-                        : "Using bundled metadata",
-                  ),
-                ),
-                if (_useSpotifyApi) ...[
-                  const Divider(),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        TextField(
-                          controller: _clientIdController,
-                          decoration: InputDecoration(
-                            labelText: context.l10n.credentialsClientId,
-                            prefixIcon: const Icon(Icons.key),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outline,
-                                width: 0.5,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _clientSecretController,
-                          obscureText: !_showClientSecret,
-                          decoration: InputDecoration(
-                            labelText: context.l10n.credentialsClientSecret,
-                            prefixIcon: const Icon(Icons.lock),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: colorScheme.outline,
-                                width: 0.5,
-                              ),
-                            ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _showClientSecret
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              onPressed: () => setState(
-                                () => _showClientSecret = !_showClientSecret,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
         ],
       ),
     );

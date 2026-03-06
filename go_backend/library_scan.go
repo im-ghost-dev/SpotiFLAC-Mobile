@@ -67,6 +67,48 @@ var supportedAudioFormats = map[string]bool{
 	".ogg":  true,
 }
 
+type libraryAudioFileInfo struct {
+	path    string
+	modTime int64
+}
+
+func collectLibraryAudioFiles(folderPath string, cancelCh <-chan struct{}) ([]libraryAudioFileInfo, error) {
+	var files []libraryAudioFileInfo
+
+	err := filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		select {
+		case <-cancelCh:
+			return fmt.Errorf("scan cancelled")
+		default:
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		ext := strings.ToLower(filepath.Ext(path))
+		if !supportedAudioFormats[ext] {
+			return nil
+		}
+
+		files = append(files, libraryAudioFileInfo{
+			path:    path,
+			modTime: info.ModTime().UnixMilli(),
+		})
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
 func SetLibraryCoverCacheDir(cacheDir string) {
 	libraryCoverCacheMu.Lock()
 	libraryCoverCacheDir = cacheDir
@@ -98,29 +140,14 @@ func ScanLibraryFolder(folderPath string) (string, error) {
 	cancelCh := libraryScanCancel
 	libraryScanCancelMu.Unlock()
 
-	var audioFiles []string
-	err = filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		select {
-		case <-cancelCh:
-			return fmt.Errorf("scan cancelled")
-		default:
-		}
-
-		if !info.IsDir() {
-			ext := strings.ToLower(filepath.Ext(path))
-			if supportedAudioFormats[ext] {
-				audioFiles = append(audioFiles, path)
-			}
-		}
-		return nil
-	})
-
+	audioFileInfos, err := collectLibraryAudioFiles(folderPath, cancelCh)
 	if err != nil {
 		return "[]", err
+	}
+
+	audioFiles := make([]string, 0, len(audioFileInfos))
+	for _, fileInfo := range audioFileInfos {
+		audioFiles = append(audioFiles, fileInfo.path)
 	}
 
 	totalFiles := len(audioFiles)
@@ -218,6 +245,18 @@ func scanAudioFile(filePath, scanTime string) (*LibraryScanResult, error) {
 	}
 }
 
+func applyDefaultLibraryMetadata(filePath string, result *LibraryScanResult) {
+	if result.TrackName == "" {
+		result.TrackName = strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+	}
+	if result.ArtistName == "" {
+		result.ArtistName = "Unknown Artist"
+	}
+	if result.AlbumName == "" {
+		result.AlbumName = "Unknown Album"
+	}
+}
+
 func scanFLACFile(filePath string, result *LibraryScanResult) (*LibraryScanResult, error) {
 	metadata, err := ReadMetadata(filePath)
 	if err != nil {
@@ -243,15 +282,7 @@ func scanFLACFile(filePath string, result *LibraryScanResult) (*LibraryScanResul
 		}
 	}
 
-	if result.TrackName == "" {
-		result.TrackName = strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
-	}
-	if result.ArtistName == "" {
-		result.ArtistName = "Unknown Artist"
-	}
-	if result.AlbumName == "" {
-		result.AlbumName = "Unknown Album"
-	}
+	applyDefaultLibraryMetadata(filePath, result)
 
 	return result, nil
 }
@@ -297,15 +328,7 @@ func scanMP3File(filePath string, result *LibraryScanResult) (*LibraryScanResult
 		}
 	}
 
-	if result.TrackName == "" {
-		result.TrackName = strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
-	}
-	if result.ArtistName == "" {
-		result.ArtistName = "Unknown Artist"
-	}
-	if result.AlbumName == "" {
-		result.AlbumName = "Unknown Album"
-	}
+	applyDefaultLibraryMetadata(filePath, result)
 
 	return result, nil
 }
@@ -337,15 +360,7 @@ func scanOggFile(filePath string, result *LibraryScanResult) (*LibraryScanResult
 		}
 	}
 
-	if result.TrackName == "" {
-		result.TrackName = strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
-	}
-	if result.ArtistName == "" {
-		result.ArtistName = "Unknown Artist"
-	}
-	if result.AlbumName == "" {
-		result.AlbumName = "Unknown Album"
-	}
+	applyDefaultLibraryMetadata(filePath, result)
 
 	return result, nil
 }
@@ -476,39 +491,13 @@ func ScanLibraryFolderIncremental(folderPath, existingFilesJSON string) (string,
 	libraryScanCancelMu.Unlock()
 
 	// Collect all audio files with their mod times
-	type fileInfo struct {
-		path    string
-		modTime int64
-	}
-	var currentFiles []fileInfo
-	currentPathSet := make(map[string]bool)
-
-	err = filepath.Walk(folderPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-
-		select {
-		case <-cancelCh:
-			return fmt.Errorf("scan cancelled")
-		default:
-		}
-
-		if !info.IsDir() {
-			ext := strings.ToLower(filepath.Ext(path))
-			if supportedAudioFormats[ext] {
-				currentFiles = append(currentFiles, fileInfo{
-					path:    path,
-					modTime: info.ModTime().UnixMilli(),
-				})
-				currentPathSet[path] = true
-			}
-		}
-		return nil
-	})
-
+	currentFiles, err := collectLibraryAudioFiles(folderPath, cancelCh)
 	if err != nil {
 		return "{}", err
+	}
+	currentPathSet := make(map[string]bool, len(currentFiles))
+	for _, fileInfo := range currentFiles {
+		currentPathSet[fileInfo.path] = true
 	}
 
 	totalFiles := len(currentFiles)
@@ -517,7 +506,7 @@ func ScanLibraryFolderIncremental(folderPath, existingFilesJSON string) (string,
 	libraryScanProgressMu.Unlock()
 
 	// Find files to scan (new or modified)
-	var filesToScan []fileInfo
+	var filesToScan []libraryAudioFileInfo
 	skippedCount := 0
 
 	for _, f := range currentFiles {

@@ -23,7 +23,207 @@ class DownloadSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
-  static const _builtInServices = ['tidal', 'qobuz', 'amazon'];
+  static const _builtInServices = ['tidal', 'qobuz', 'amazon', 'deezer'];
+  static const _songLinkRegions = [
+    'AD',
+    'AE',
+    'AG',
+    'AL',
+    'AM',
+    'AO',
+    'AR',
+    'AT',
+    'AU',
+    'AZ',
+    'BA',
+    'BB',
+    'BD',
+    'BE',
+    'BF',
+    'BG',
+    'BH',
+    'BI',
+    'BJ',
+    'BN',
+    'BO',
+    'BR',
+    'BS',
+    'BT',
+    'BW',
+    'BZ',
+    'CA',
+    'CD',
+    'CG',
+    'CH',
+    'CI',
+    'CL',
+    'CM',
+    'CO',
+    'CR',
+    'CV',
+    'CW',
+    'CY',
+    'CZ',
+    'DE',
+    'DJ',
+    'DK',
+    'DM',
+    'DO',
+    'DZ',
+    'EC',
+    'EE',
+    'EG',
+    'ES',
+    'ET',
+    'FI',
+    'FJ',
+    'FM',
+    'FR',
+    'GA',
+    'GB',
+    'GD',
+    'GE',
+    'GH',
+    'GM',
+    'GN',
+    'GQ',
+    'GR',
+    'GT',
+    'GW',
+    'GY',
+    'HK',
+    'HN',
+    'HR',
+    'HT',
+    'HU',
+    'ID',
+    'IE',
+    'IL',
+    'IN',
+    'IQ',
+    'IS',
+    'IT',
+    'JM',
+    'JO',
+    'JP',
+    'KE',
+    'KG',
+    'KH',
+    'KI',
+    'KM',
+    'KN',
+    'KR',
+    'KW',
+    'KZ',
+    'LA',
+    'LB',
+    'LC',
+    'LI',
+    'LK',
+    'LR',
+    'LS',
+    'LT',
+    'LU',
+    'LV',
+    'LY',
+    'MA',
+    'MC',
+    'MD',
+    'ME',
+    'MG',
+    'MH',
+    'MK',
+    'ML',
+    'MN',
+    'MO',
+    'MR',
+    'MT',
+    'MU',
+    'MV',
+    'MW',
+    'MX',
+    'MY',
+    'MZ',
+    'NA',
+    'NE',
+    'NG',
+    'NI',
+    'NL',
+    'NO',
+    'NP',
+    'NR',
+    'NZ',
+    'OM',
+    'PA',
+    'PE',
+    'PG',
+    'PH',
+    'PK',
+    'PL',
+    'PS',
+    'PT',
+    'PW',
+    'PY',
+    'QA',
+    'RO',
+    'RS',
+    'RW',
+    'SA',
+    'SB',
+    'SC',
+    'SE',
+    'SG',
+    'SI',
+    'SK',
+    'SL',
+    'SM',
+    'SN',
+    'SR',
+    'ST',
+    'SV',
+    'SZ',
+    'TD',
+    'TG',
+    'TH',
+    'TJ',
+    'TL',
+    'TN',
+    'TO',
+    'TR',
+    'TT',
+    'TV',
+    'TW',
+    'TZ',
+    'UA',
+    'UG',
+    'US',
+    'UY',
+    'UZ',
+    'VC',
+    'VE',
+    'VN',
+    'VU',
+    'WS',
+    'XK',
+    'ZA',
+    'ZM',
+    'ZW',
+  ];
+  static const _songLinkRegionNames = <String, String>{
+    'US': 'United States',
+    'GB': 'United Kingdom',
+    'FR': 'France',
+    'DE': 'Germany',
+    'JP': 'Japan',
+    'KR': 'South Korea',
+    'IN': 'India',
+    'ID': 'Indonesia',
+    'BR': 'Brazil',
+    'MX': 'Mexico',
+    'AU': 'Australia',
+    'CA': 'Canada',
+    'XK': 'Kosovo',
+  };
   int _androidSdkVersion = 0;
   bool _hasAllFilesAccess = false;
   bool _artistFolderFiltersExpanded = false;
@@ -261,6 +461,33 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       ),
                     ),
                   ],
+                  SettingsItem(
+                    title: context.l10n.youtubeOpusBitrateTitle,
+                    subtitle: '${settings.youtubeOpusBitrate}kbps (128/256)',
+                    onTap: () => _showYoutubeBitratePicker(
+                      context: context,
+                      title: context.l10n.youtubeOpusBitrateTitle,
+                      currentValue: settings.youtubeOpusBitrate,
+                      options: const [128, 256],
+                      onSave: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setYoutubeOpusBitrate(value),
+                    ),
+                  ),
+                  SettingsItem(
+                    title: context.l10n.youtubeMp3BitrateTitle,
+                    subtitle: '${settings.youtubeMp3Bitrate}kbps (128/256/320)',
+                    onTap: () => _showYoutubeBitratePicker(
+                      context: context,
+                      title: context.l10n.youtubeMp3BitrateTitle,
+                      currentValue: settings.youtubeMp3Bitrate,
+                      options: const [128, 256, 320],
+                      onSave: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setYoutubeMp3Bitrate(value),
+                    ),
+                    showDivider: false,
+                  ),
                 ],
               ),
             ),
@@ -271,73 +498,93 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
             SliverToBoxAdapter(
               child: SettingsGroup(
                 children: [
-                  SettingsItem(
-                    icon: Icons.lyrics_outlined,
-                    title: context.l10n.lyricsMode,
-                    subtitle: _getLyricsModeLabel(context, settings.lyricsMode),
-                    onTap: () => _showLyricsModePicker(
-                      context,
-                      ref,
-                      settings.lyricsMode,
-                    ),
+                  SettingsSwitchItem(
+                    icon: Icons.subtitles_outlined,
+                    title: context.l10n.optionsEmbedLyrics,
+                    subtitle: settings.embedMetadata
+                        ? context.l10n.optionsEmbedLyricsSubtitle
+                        : 'Disabled while Embed Metadata is turned off',
+                    value: settings.embedLyrics,
+                    enabled: settings.embedMetadata,
+                    onChanged: (value) => ref
+                        .read(settingsProvider.notifier)
+                        .setEmbedLyrics(value),
+                    showDivider: settings.embedMetadata && settings.embedLyrics,
                   ),
-                  SettingsItem(
-                    icon: Icons.source_outlined,
-                    title: 'Lyrics Providers',
-                    subtitle: _getLyricsProvidersSubtitle(settings.lyricsProviders),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const LyricsProviderPriorityPage(),
+                  if (settings.embedMetadata && settings.embedLyrics) ...[
+                    SettingsItem(
+                      icon: Icons.lyrics_outlined,
+                      title: context.l10n.lyricsMode,
+                      subtitle: _getLyricsModeLabel(
+                        context,
+                        settings.lyricsMode,
+                      ),
+                      onTap: () => _showLyricsModePicker(
+                        context,
+                        ref,
+                        settings.lyricsMode,
                       ),
                     ),
-                  ),
-                  SettingsSwitchItem(
-                    icon: Icons.translate_outlined,
-                    title: 'Netease: Include Translation',
-                    subtitle: settings.lyricsIncludeTranslationNetease
-                        ? 'Append translated lyrics when available'
-                        : 'Use original lyrics only',
-                    value: settings.lyricsIncludeTranslationNetease,
-                    onChanged: (value) => ref
-                        .read(settingsProvider.notifier)
-                        .setLyricsIncludeTranslationNetease(value),
-                  ),
-                  SettingsSwitchItem(
-                    icon: Icons.text_fields_outlined,
-                    title: 'Netease: Include Romanization',
-                    subtitle: settings.lyricsIncludeRomanizationNetease
-                        ? 'Append romanized lyrics when available'
-                        : 'Disabled',
-                    value: settings.lyricsIncludeRomanizationNetease,
-                    onChanged: (value) => ref
-                        .read(settingsProvider.notifier)
-                        .setLyricsIncludeRomanizationNetease(value),
-                  ),
-                  SettingsSwitchItem(
-                    icon: Icons.record_voice_over_outlined,
-                    title: 'Apple/QQ Multi-Person Word-by-Word',
-                    subtitle: settings.lyricsMultiPersonWordByWord
-                        ? 'Enable v1/v2 speaker and [bg:] tags'
-                        : 'Simplified word-by-word formatting',
-                    value: settings.lyricsMultiPersonWordByWord,
-                    onChanged: (value) => ref
-                        .read(settingsProvider.notifier)
-                        .setLyricsMultiPersonWordByWord(value),
-                  ),
-                  SettingsItem(
-                    icon: Icons.language_outlined,
-                    title: 'Musixmatch Language',
-                    subtitle: settings.musixmatchLanguage.isEmpty
-                        ? 'Auto (original)'
-                        : settings.musixmatchLanguage.toUpperCase(),
-                    onTap: () => _showMusixmatchLanguagePicker(
-                      context,
-                      ref,
-                      settings.musixmatchLanguage,
+                    SettingsItem(
+                      icon: Icons.source_outlined,
+                      title: 'Lyrics Providers',
+                      subtitle: _getLyricsProvidersSubtitle(
+                        settings.lyricsProviders,
+                      ),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LyricsProviderPriorityPage(),
+                        ),
+                      ),
                     ),
-                    showDivider: false,
-                  ),
+                    SettingsSwitchItem(
+                      icon: Icons.translate_outlined,
+                      title: 'Netease: Include Translation',
+                      subtitle: settings.lyricsIncludeTranslationNetease
+                          ? 'Append translated lyrics when available'
+                          : 'Use original lyrics only',
+                      value: settings.lyricsIncludeTranslationNetease,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setLyricsIncludeTranslationNetease(value),
+                    ),
+                    SettingsSwitchItem(
+                      icon: Icons.text_fields_outlined,
+                      title: 'Netease: Include Romanization',
+                      subtitle: settings.lyricsIncludeRomanizationNetease
+                          ? 'Append romanized lyrics when available'
+                          : 'Disabled',
+                      value: settings.lyricsIncludeRomanizationNetease,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setLyricsIncludeRomanizationNetease(value),
+                    ),
+                    SettingsSwitchItem(
+                      icon: Icons.record_voice_over_outlined,
+                      title: 'Apple/QQ Multi-Person Word-by-Word',
+                      subtitle: settings.lyricsMultiPersonWordByWord
+                          ? 'Enable v1/v2 speaker and [bg:] tags'
+                          : 'Simplified word-by-word formatting',
+                      value: settings.lyricsMultiPersonWordByWord,
+                      onChanged: (value) => ref
+                          .read(settingsProvider.notifier)
+                          .setLyricsMultiPersonWordByWord(value),
+                    ),
+                    SettingsItem(
+                      icon: Icons.language_outlined,
+                      title: 'Musixmatch Language',
+                      subtitle: settings.musixmatchLanguage.isEmpty
+                          ? 'Auto (original)'
+                          : settings.musixmatchLanguage.toUpperCase(),
+                      onTap: () => _showMusixmatchLanguagePicker(
+                        context,
+                        ref,
+                        settings.musixmatchLanguage,
+                      ),
+                      showDivider: false,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -504,6 +751,29 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       settings.downloadNetworkMode,
                     ),
                   ),
+                  SettingsItem(
+                    icon: Icons.public,
+                    title: 'SongLink Region',
+                    subtitle: _getSongLinkRegionLabel(settings.songLinkRegion),
+                    onTap: () => _showSongLinkRegionPicker(
+                      context,
+                      ref,
+                      settings.songLinkRegion,
+                    ),
+                  ),
+                  SettingsSwitchItem(
+                    icon: Icons.security_outlined,
+                    title: 'Network compatibility mode',
+                    subtitle: settings.networkCompatibilityMode
+                        ? 'Enabled: try HTTP + accept invalid TLS certificates (unsafe)'
+                        : 'Off: strict HTTPS certificate validation (recommended)',
+                    value: settings.networkCompatibilityMode,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsProvider.notifier)
+                          .setNetworkCompatibilityMode(value);
+                    },
+                  ),
                   SettingsSwitchItem(
                     icon: Icons.file_download_outlined,
                     title: context.l10n.settingsAutoExportFailed,
@@ -603,6 +873,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
   ) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -737,6 +1008,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
@@ -954,6 +1226,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
         settings.storageMode == 'saf' && settings.downloadTreeUri.isNotEmpty;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1033,6 +1306,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1180,6 +1454,14 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     }
   }
 
+  String _getSongLinkRegionLabel(String code) {
+    final normalized = code.trim().toUpperCase();
+    final effective = normalized.isEmpty ? 'US' : normalized;
+    final name = _songLinkRegionNames[effective];
+    if (name == null) return effective;
+    return '$effective - $name';
+  }
+
   void _showLyricsModePicker(
     BuildContext context,
     WidgetRef ref,
@@ -1188,6 +1470,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1253,6 +1536,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
   }
 
   static const _providerDisplayNames = <String, String>{
+    'spotify_api': 'Spotify Lyrics API',
     'lrclib': 'LRCLIB',
     'netease': 'Netease',
     'musixmatch': 'Musixmatch',
@@ -1262,14 +1546,74 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
   String _getLyricsProvidersSubtitle(List<String> providers) {
     if (providers.isEmpty) return 'None enabled';
-    return providers
-        .map((p) => _providerDisplayNames[p] ?? p)
-        .join(' > ');
+    return providers.map((p) => _providerDisplayNames[p] ?? p).join(' > ');
   }
 
   String _normalizeMusixmatchLanguage(String value) {
     final normalized = value.trim().toLowerCase();
     return normalized.replaceAll(RegExp(r'[^a-z0-9\-_]'), '');
+  }
+
+  void _showYoutubeBitratePicker({
+    required BuildContext context,
+    required String title,
+    required int currentValue,
+    required List<int> options,
+    required void Function(int value) onSave,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(sheetContext).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (final bitrate in options)
+              ListTile(
+                title: Text('$bitrate kbps'),
+                trailing: bitrate == currentValue
+                    ? Icon(Icons.check, color: colorScheme.primary)
+                    : null,
+                onTap: () {
+                  onSave(bitrate);
+                  Navigator.pop(sheetContext);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showMusixmatchLanguagePicker(
@@ -1282,6 +1626,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1300,9 +1645,9 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
           children: [
             Text(
               'Musixmatch Language',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1331,7 +1676,9 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
-                    ref.read(settingsProvider.notifier).setMusixmatchLanguage('');
+                    ref
+                        .read(settingsProvider.notifier)
+                        .setMusixmatchLanguage('');
                     Navigator.pop(context);
                   },
                   child: const Text('Auto'),
@@ -1378,6 +1725,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1462,6 +1810,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1524,6 +1873,75 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     );
   }
 
+  void _showSongLinkRegionPicker(
+    BuildContext context,
+    WidgetRef ref,
+    String current,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final normalizedCurrent = current.trim().toUpperCase();
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                child: Text(
+                  'SongLink Region',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                child: Text(
+                  'Used as userCountry for SongLink API lookup.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _songLinkRegions.length,
+                  itemBuilder: (context, index) {
+                    final code = _songLinkRegions[index];
+                    final isSelected = code == normalizedCurrent;
+                    final displayName = _songLinkRegionNames[code];
+                    return ListTile(
+                      title: Text(code),
+                      subtitle: displayName != null ? Text(displayName) : null,
+                      trailing: isSelected
+                          ? Icon(Icons.check, color: colorScheme.primary)
+                          : null,
+                      onTap: () {
+                        ref
+                            .read(settingsProvider.notifier)
+                            .setSongLinkRegion(code);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showFolderOrganizationPicker(
     BuildContext context,
     WidgetRef ref,
@@ -1532,6 +1950,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -1632,16 +2051,13 @@ class _ServiceSelector extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final extState = ref.watch(extensionProvider);
+    final builtInServiceIds = ['tidal', 'qobuz', 'amazon', 'deezer', 'youtube'];
 
     final extensionProviders = extState.extensions
         .where((e) => e.enabled && e.hasDownloadProvider)
         .toList();
 
-    final isExtensionService = ![
-      'tidal',
-      'qobuz',
-      'amazon',
-    ].contains(currentService);
+    final isExtensionService = !builtInServiceIds.contains(currentService);
     final isCurrentExtensionEnabled = isExtensionService
         ? extensionProviders.any((e) => e.id == currentService)
         : true;
@@ -1654,47 +2070,56 @@ class _ServiceSelector extends ConsumerWidget {
         children: [
           Row(
             children: [
-              _ServiceChip(
-                icon: Icons.music_note,
-                label: 'Tidal',
-                isSelected: effectiveService == 'tidal',
-                onTap: () => onChanged('tidal'),
+              Expanded(
+                child: _ServiceChip(
+                  icon: Icons.music_note,
+                  label: 'Tidal',
+                  isSelected: effectiveService == 'tidal',
+                  onTap: () => onChanged('tidal'),
+                ),
               ),
               const SizedBox(width: 8),
-              _ServiceChip(
-                icon: Icons.album,
-                label: 'Qobuz',
-                isSelected: effectiveService == 'qobuz',
-                onTap: () => onChanged('qobuz'),
+              Expanded(
+                child: _ServiceChip(
+                  icon: Icons.album,
+                  label: 'Qobuz',
+                  isSelected: effectiveService == 'qobuz',
+                  onTap: () => onChanged('qobuz'),
+                ),
               ),
               const SizedBox(width: 8),
-              _ServiceChip(
-                icon: Icons.shopping_bag_outlined,
-                label: 'Amazon',
-                isSelected: effectiveService == 'amazon',
-                onTap: () => onChanged('amazon'),
+              Expanded(
+                child: _ServiceChip(
+                  icon: Icons.shopping_bag_outlined,
+                  label: 'Amazon',
+                  isSelected: effectiveService == 'amazon',
+                  onTap: () => onChanged('amazon'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ServiceChip(
+                  icon: Icons.smart_display,
+                  label: 'YouTube',
+                  isSelected: effectiveService == 'youtube',
+                  onTap: () => onChanged('youtube'),
+                ),
               ),
             ],
           ),
           if (extensionProviders.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                for (int i = 0; i < extensionProviders.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  Expanded(
-                    child: _ServiceChip(
-                      icon: Icons.extension,
-                      label: extensionProviders[i].displayName,
-                      isSelected: effectiveService == extensionProviders[i].id,
-                      onTap: () => onChanged(extensionProviders[i].id),
-                    ),
+                for (final extension in extensionProviders)
+                  _ServiceChip(
+                    icon: Icons.extension,
+                    label: extension.displayName,
+                    isSelected: effectiveService == extension.id,
+                    onTap: () => onChanged(extension.id),
                   ),
-                ],
-                for (int i = extensionProviders.length; i < 3; i++) ...[
-                  const SizedBox(width: 8),
-                  const Expanded(child: SizedBox()),
-                ],
               ],
             ),
           ],
@@ -1728,38 +2153,35 @@ class _ServiceChip extends StatelessWidget {
           )
         : colorScheme.surfaceContainerHigh;
 
-    return Expanded(
-      child: Material(
-        color: isSelected ? colorScheme.primaryContainer : unselectedColor,
+    return Material(
+      color: isSelected ? colorScheme.primaryContainer : unselectedColor,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Column(
-              children: [
-                Icon(
-                  icon,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   color: isSelected
                       ? colorScheme.onPrimaryContainer
                       : colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                    color: isSelected
-                        ? colorScheme.onPrimaryContainer
-                        : colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),

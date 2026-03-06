@@ -35,6 +35,10 @@ class HistoryDatabase {
     return await openDatabase(
       path,
       version: 3,
+      onConfigure: (db) async {
+        await db.rawQuery('PRAGMA journal_mode = WAL');
+        await db.execute('PRAGMA synchronous = NORMAL');
+      },
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );

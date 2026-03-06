@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -35,6 +36,16 @@ const (
 	DefaultMaxRetries = 3
 	DefaultRetryDelay = 1 * time.Second
 	Second            = time.Second
+)
+
+type NetworkCompatibilityOptions struct {
+	AllowHTTP   bool
+	InsecureTLS bool
+}
+
+var (
+	networkCompatibilityMu      sync.RWMutex
+	networkCompatibilityOptions NetworkCompatibilityOptions
 )
 
 var sharedTransport = &http.Transport{
@@ -77,18 +88,18 @@ var metadataTransport = &http.Transport{
 }
 
 var sharedClient = &http.Client{
-	Transport: sharedTransport,
+	Transport: newCompatibilityTransport(sharedTransport),
 	Timeout:   DefaultTimeout,
 }
 
 var downloadClient = &http.Client{
-	Transport: sharedTransport,
+	Transport: newCompatibilityTransport(sharedTransport),
 	Timeout:   DownloadTimeout,
 }
 
 func NewHTTPClientWithTimeout(timeout time.Duration) *http.Client {
 	return &http.Client{
-		Transport: sharedTransport,
+		Transport: newCompatibilityTransport(sharedTransport),
 		Timeout:   timeout,
 	}
 }
@@ -97,7 +108,7 @@ func NewHTTPClientWithTimeout(timeout time.Duration) *http.Client {
 // Use this for API calls that should not be affected by download traffic.
 func NewMetadataHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
-		Transport: metadataTransport,
+		Transport: newCompatibilityTransport(metadataTransport),
 		Timeout:   timeout,
 	}
 }
@@ -113,6 +124,109 @@ func GetDownloadClient() *http.Client {
 func CloseIdleConnections() {
 	sharedTransport.CloseIdleConnections()
 	metadataTransport.CloseIdleConnections()
+}
+
+func SetNetworkCompatibilityOptions(allowHTTP, insecureTLS bool) {
+	networkCompatibilityMu.Lock()
+	networkCompatibilityOptions = NetworkCompatibilityOptions{
+		AllowHTTP:   allowHTTP,
+		InsecureTLS: insecureTLS,
+	}
+	networkCompatibilityMu.Unlock()
+
+	applyTLSCompatibility(sharedTransport, insecureTLS)
+	applyTLSCompatibility(metadataTransport, insecureTLS)
+	CloseIdleConnections()
+
+	GoLog("[HTTP] Network compatibility options updated: allow_http=%v insecure_tls=%v\n", allowHTTP, insecureTLS)
+}
+
+func GetNetworkCompatibilityOptions() NetworkCompatibilityOptions {
+	networkCompatibilityMu.RLock()
+	defer networkCompatibilityMu.RUnlock()
+	return networkCompatibilityOptions
+}
+
+func applyTLSCompatibility(transport *http.Transport, insecureTLS bool) {
+	if insecureTLS {
+		cfg := &tls.Config{InsecureSkipVerify: true}
+		if transport.TLSClientConfig != nil {
+			cfg = transport.TLSClientConfig.Clone()
+			cfg.InsecureSkipVerify = true
+		}
+		transport.TLSClientConfig = cfg
+		return
+	}
+
+	transport.TLSClientConfig = nil
+}
+
+type compatibilityTransport struct {
+	base http.RoundTripper
+}
+
+func newCompatibilityTransport(base http.RoundTripper) http.RoundTripper {
+	return &compatibilityTransport{base: base}
+}
+
+func (t *compatibilityTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req == nil || req.URL == nil {
+		return t.base.RoundTrip(req)
+	}
+
+	opts := GetNetworkCompatibilityOptions()
+	if !opts.AllowHTTP || req.URL.Scheme != "https" {
+		return t.base.RoundTrip(req)
+	}
+
+	// Compatibility mode should prefer HTTPS and only fallback to HTTP on
+	// transport-level failures. Forcing HTTP unconditionally can trigger
+	// redirect loops (http -> https) on providers that enforce HTTPS.
+	resp, err := t.base.RoundTrip(req)
+	if err == nil {
+		return resp, nil
+	}
+
+	if !canFallbackToHTTP(req) {
+		return nil, err
+	}
+
+	fallbackReq, cloneErr := cloneRequestWithHTTPScheme(req, "http")
+	if cloneErr != nil {
+		return nil, err
+	}
+
+	GoLog("[HTTP] HTTPS request failed for %s, retrying over HTTP: %v\n", req.URL.Host, err)
+	return t.base.RoundTrip(fallbackReq)
+}
+
+func canFallbackToHTTP(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+
+	switch strings.ToUpper(req.Method) {
+	case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodDelete:
+		return true
+	default:
+		return req.GetBody != nil
+	}
+}
+
+func cloneRequestWithHTTPScheme(req *http.Request, scheme string) (*http.Request, error) {
+	reqCopy := req.Clone(req.Context())
+	if req.Body != nil && req.GetBody != nil {
+		bodyCopy, err := req.GetBody()
+		if err != nil {
+			return nil, err
+		}
+		reqCopy.Body = bodyCopy
+	}
+
+	urlCopy := *req.URL
+	urlCopy.Scheme = scheme
+	reqCopy.URL = &urlCopy
+	return reqCopy, nil
 }
 
 // Also checks for ISP blocking on errors
@@ -145,7 +259,6 @@ func DefaultRetryConfig() RetryConfig {
 func DoRequestWithRetry(client *http.Client, req *http.Request, config RetryConfig) (*http.Response, error) {
 	var lastErr error
 	delay := config.InitialDelay
-	requestURL := req.URL.String()
 
 	for attempt := 0; attempt <= config.MaxRetries; attempt++ {
 		reqCopy := req.Clone(req.Context())
@@ -155,8 +268,8 @@ func DoRequestWithRetry(client *http.Client, req *http.Request, config RetryConf
 		if err != nil {
 			lastErr = err
 
-			if CheckAndLogISPBlocking(err, requestURL, "HTTP") {
-				return nil, WrapErrorWithISPCheck(err, requestURL, "HTTP")
+			if CheckAndLogISPBlocking(err, reqCopy.URL.String(), "HTTP") {
+				return nil, WrapErrorWithISPCheck(err, reqCopy.URL.String(), "HTTP")
 			}
 
 			if attempt < config.MaxRetries {

@@ -11,6 +11,7 @@ class AppSettings {
   final String storageMode; // 'app' or 'saf'
   final String downloadTreeUri; // SAF persistable tree URI
   final bool autoFallback;
+  final bool embedMetadata; // Master switch for metadata/cover/lyrics embedding
   final bool embedLyrics;
   final bool maxQualityCover;
   final bool isFirstLaunch;
@@ -39,12 +40,20 @@ class AppSettings {
   final String lyricsMode;
   final String
   tidalHighFormat; // Format for Tidal HIGH quality: 'mp3_320', 'opus_256', or 'opus_128'
+  final int
+  youtubeOpusBitrate; // YouTube Opus bitrate (supported: 128/256 kbps)
+  final int
+  youtubeMp3Bitrate; // YouTube MP3 bitrate (supported: 128/256/320 kbps)
   final bool
   useAllFilesAccess; // Android 13+ only: enable MANAGE_EXTERNAL_STORAGE
   final bool
   autoExportFailedDownloads; // Auto export failed downloads to TXT file
   final String
   downloadNetworkMode; // 'any' = WiFi + Mobile, 'wifi_only' = WiFi only
+  final bool
+  networkCompatibilityMode; // Try HTTP + allow invalid TLS cert for API requests
+  final String
+  songLinkRegion; // SongLink userCountry region code used for platform lookup
 
   // Local Library Settings
   final bool localLibraryEnabled; // Enable local library scanning
@@ -68,6 +77,10 @@ class AppSettings {
   final String
   musixmatchLanguage; // Optional ISO language code for Musixmatch localized lyrics
 
+  // Version upgrade tracking
+  final String
+  lastSeenVersion; // Last app version the user has acknowledged (e.g. '3.7.0')
+
   const AppSettings({
     this.defaultService = 'tidal',
     this.audioQuality = 'LOSSLESS',
@@ -76,6 +89,7 @@ class AppSettings {
     this.storageMode = 'app',
     this.downloadTreeUri = '',
     this.autoFallback = true,
+    this.embedMetadata = true,
     this.embedLyrics = true,
     this.maxQualityCover = true,
     this.isFirstLaunch = true,
@@ -103,9 +117,13 @@ class AppSettings {
     this.locale = 'system',
     this.lyricsMode = 'embed',
     this.tidalHighFormat = 'mp3_320',
+    this.youtubeOpusBitrate = 256,
+    this.youtubeMp3Bitrate = 320,
     this.useAllFilesAccess = false,
     this.autoExportFailedDownloads = false,
     this.downloadNetworkMode = 'any',
+    this.networkCompatibilityMode = false,
+    this.songLinkRegion = 'US',
     // Local Library defaults
     this.localLibraryEnabled = false,
     this.localLibraryPath = '',
@@ -113,11 +131,20 @@ class AppSettings {
     // Tutorial default
     this.hasCompletedTutorial = false,
     // Lyrics providers default order
-    this.lyricsProviders = const ['lrclib', 'musixmatch', 'netease', 'apple_music', 'qqmusic'],
+    this.lyricsProviders = const [
+      'lrclib',
+      'spotify_api',
+      'musixmatch',
+      'netease',
+      'apple_music',
+      'qqmusic',
+    ],
     this.lyricsIncludeTranslationNetease = false,
     this.lyricsIncludeRomanizationNetease = false,
-    this.lyricsMultiPersonWordByWord = true,
+    this.lyricsMultiPersonWordByWord = false,
     this.musixmatchLanguage = '',
+    // Version upgrade tracking
+    this.lastSeenVersion = '',
   });
 
   AppSettings copyWith({
@@ -127,7 +154,8 @@ class AppSettings {
     String? downloadDirectory,
     String? storageMode,
     String? downloadTreeUri,
-    bool? autoFallback,
+     bool? autoFallback,
+    bool? embedMetadata,
     bool? embedLyrics,
     bool? maxQualityCover,
     bool? isFirstLaunch,
@@ -156,9 +184,13 @@ class AppSettings {
     String? locale,
     String? lyricsMode,
     String? tidalHighFormat,
+    int? youtubeOpusBitrate,
+    int? youtubeMp3Bitrate,
     bool? useAllFilesAccess,
     bool? autoExportFailedDownloads,
     String? downloadNetworkMode,
+    bool? networkCompatibilityMode,
+    String? songLinkRegion,
     // Local Library
     bool? localLibraryEnabled,
     String? localLibraryPath,
@@ -171,6 +203,8 @@ class AppSettings {
     bool? lyricsIncludeRomanizationNetease,
     bool? lyricsMultiPersonWordByWord,
     String? musixmatchLanguage,
+    // Version upgrade tracking
+    String? lastSeenVersion,
   }) {
     return AppSettings(
       defaultService: defaultService ?? this.defaultService,
@@ -180,6 +214,7 @@ class AppSettings {
       storageMode: storageMode ?? this.storageMode,
       downloadTreeUri: downloadTreeUri ?? this.downloadTreeUri,
       autoFallback: autoFallback ?? this.autoFallback,
+      embedMetadata: embedMetadata ?? this.embedMetadata,
       embedLyrics: embedLyrics ?? this.embedLyrics,
       maxQualityCover: maxQualityCover ?? this.maxQualityCover,
       isFirstLaunch: isFirstLaunch ?? this.isFirstLaunch,
@@ -215,10 +250,15 @@ class AppSettings {
       locale: locale ?? this.locale,
       lyricsMode: lyricsMode ?? this.lyricsMode,
       tidalHighFormat: tidalHighFormat ?? this.tidalHighFormat,
+      youtubeOpusBitrate: youtubeOpusBitrate ?? this.youtubeOpusBitrate,
+      youtubeMp3Bitrate: youtubeMp3Bitrate ?? this.youtubeMp3Bitrate,
       useAllFilesAccess: useAllFilesAccess ?? this.useAllFilesAccess,
       autoExportFailedDownloads:
           autoExportFailedDownloads ?? this.autoExportFailedDownloads,
       downloadNetworkMode: downloadNetworkMode ?? this.downloadNetworkMode,
+      networkCompatibilityMode:
+          networkCompatibilityMode ?? this.networkCompatibilityMode,
+      songLinkRegion: songLinkRegion ?? this.songLinkRegion,
       // Local Library
       localLibraryEnabled: localLibraryEnabled ?? this.localLibraryEnabled,
       localLibraryPath: localLibraryPath ?? this.localLibraryPath,
@@ -229,12 +269,16 @@ class AppSettings {
       // Lyrics providers
       lyricsProviders: lyricsProviders ?? this.lyricsProviders,
       lyricsIncludeTranslationNetease:
-          lyricsIncludeTranslationNetease ?? this.lyricsIncludeTranslationNetease,
+          lyricsIncludeTranslationNetease ??
+          this.lyricsIncludeTranslationNetease,
       lyricsIncludeRomanizationNetease:
-          lyricsIncludeRomanizationNetease ?? this.lyricsIncludeRomanizationNetease,
+          lyricsIncludeRomanizationNetease ??
+          this.lyricsIncludeRomanizationNetease,
       lyricsMultiPersonWordByWord:
           lyricsMultiPersonWordByWord ?? this.lyricsMultiPersonWordByWord,
       musixmatchLanguage: musixmatchLanguage ?? this.musixmatchLanguage,
+      // Version upgrade tracking
+      lastSeenVersion: lastSeenVersion ?? this.lastSeenVersion,
     );
   }
 

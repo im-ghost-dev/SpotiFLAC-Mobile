@@ -1,5 +1,5 @@
-[![GitHub All Releases](https://img.shields.io/github/downloads/zarzet/SpotiFLAC-Mobile/total?style=for-the-badge)](https://github.com/zarzet/SpotiFLAC-Mobile/releases)
-[![VirusTotal](https://img.shields.io/badge/VirusTotal-Safe-brightgreen?style=for-the-badge&logo=virustotal)](https://www.virustotal.com/gui/file/40f8f1914287dea317122a837f98b0ddf7af3205adc2f84a350d767e0a6a345c)
+[![GitHub All Releases](https://img.shields.io/github/downloads/zarzet/SpotiFLAC-Mobile/total?style=for-the-badge&refresh=1)](https://github.com/zarzet/SpotiFLAC-Mobile/releases)
+[![VirusTotal](https://img.shields.io/badge/VirusTotal-Safe-brightgreen?style=for-the-badge&logo=virustotal)](https://www.virustotal.com/gui/file/0a2bd2a033551983fc9fcd83f82fd912c83914fd1094cd8d1c7c6a68eb23233f)
 [![Crowdin](https://img.shields.io/badge/HELP%20TRANSLATE%20ON-CROWDIN-%2321252b?style=for-the-badge&logo=crowdin)](https://crowdin.com/project/spotiflac-mobile)
 
 <div align="center">
@@ -94,12 +94,7 @@ The software is provided "as is", without warranty of any kind. The author assum
 
 ## API Credits
 
-- **Tidal**: [hifi-api](https://github.com/binimum/hifi-api), [music.binimum.org](https://music.binimum.org), [qqdl.site](https://qqdl.site), [squid.wtf](https://squid.wtf), [spotisaver.net](https://spotisaver.net)
-- **Qobuz**: [dabmusic.xyz](https://dabmusic.xyz), [squid.wtf](https://squid.wtf), [jumo-dl](https://jumo-dl.pages.dev)
-- **Amazon**: [AfkarXYZ](https://github.com/afkarxyz)
-- **Lyrics**: [LRCLib](https://lrclib.net), [Paxsenix](https://lyrics.paxsenix.org) (Apple Music/QQ Music lyrics proxy)
-- **YouTube Audio**: [Cobalt](https://cobalt.tools) via [qwkuns.me](https://qwkuns.me), [SpotubeDL](https://spotubedl.com)
-- **Track Linking**: [SongLink / Odesli](https://odesli.co), [IDHS](https://github.com/sjdonado/idonthavespotify)
+[hifi-api](https://github.com/binimum/hifi-api) · [music.binimum.org](https://music.binimum.org) · [qqdl.site](https://qqdl.site) · [squid.wtf](https://squid.wtf) · [spotisaver.net](https://spotisaver.net) · [dabmusic.xyz](https://dabmusic.xyz) · [AfkarXYZ](https://github.com/afkarxyz) · [LRCLib](https://lrclib.net) · [Paxsenix](https://lyrics.paxsenix.org) · [Cobalt](https://cobalt.tools) · [qwkuns.me](https://qwkuns.me) · [SpotubeDL](https://spotubedl.com) · [Song.link](https://song.link) · [IDHS](https://github.com/sjdonado/idonthavespotify)
 
 
 > [!TIP]

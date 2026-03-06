@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,10 +13,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/services/ffmpeg_service.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/utils/logger.dart';
+import 'package:spotiflac_android/utils/string_utils.dart';
 
 final _log = AppLogger('TrackMetadata');
 
@@ -52,6 +53,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   _embeddedCoverPreviewCache = {};
 
   bool _fileExists = false;
+  bool _hasCheckedFile = false;
   int? _fileSize;
   String? _lyrics; // Cleaned lyrics for display (no timestamps)
   String? _rawLyrics; // Raw LRC with timestamps for embedding
@@ -76,6 +78,9 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   );
   static final RegExp _lrcSpeakerPrefixPattern = RegExp(r'^(v1|v2):\s*');
   static final RegExp _lrcBackgroundLinePattern = RegExp(r'^\[bg:(.*)\]$');
+  static final RegExp _invalidFileNameChars = RegExp(r'[<>:"/\\|?*\x00-\x1f]');
+  static final RegExp _multiUnderscore = RegExp(r'_+');
+  static final RegExp _leadingOrTrailingDots = RegExp(r'^\.+|\.+$');
   static const List<String> _months = [
     'Jan',
     'Feb',
@@ -178,14 +183,6 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     return cached.previewPath;
   }
 
-  String? _normalizeOptionalString(String? value) {
-    if (value == null) return null;
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
-    if (trimmed.toLowerCase() == 'null') return null;
-    return trimmed;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -202,10 +199,17 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   }
 
   void _onScroll() {
-    final shouldShow = _scrollController.offset > 280;
+    final expandedHeight = _calculateExpandedHeight(context);
+    final shouldShow =
+        _scrollController.offset > (expandedHeight - kToolbarHeight - 20);
     if (shouldShow != _showTitleInAppBar) {
       setState(() => _showTitleInAppBar = shouldShow);
     }
+  }
+
+  double _calculateExpandedHeight(BuildContext context) {
+    final mediaSize = MediaQuery.of(context).size;
+    return (mediaSize.height * 0.55).clamp(360.0, 520.0);
   }
 
   Future<void> _checkFile() async {
@@ -224,10 +228,12 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
       }
     } catch (_) {}
 
-    if (mounted && (exists != _fileExists || size != _fileSize)) {
+    if (mounted &&
+        (exists != _fileExists || size != _fileSize || !_hasCheckedFile)) {
       setState(() {
         _fileExists = exists;
         _fileSize = size;
+        _hasCheckedFile = true;
       });
     }
 
@@ -371,7 +377,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   String? get albumArtist {
     final edited = _editedMetadata?['album_artist']?.toString();
     if (edited != null && edited.isNotEmpty) return edited;
-    return _normalizeOptionalString(
+    return normalizeOptionalString(
       _isLocalItem
           ? _localLibraryItem!.albumArtist
           : _downloadItem!.albumArtist,
@@ -506,19 +512,17 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final coverSize = screenWidth * 0.5;
+    final expandedHeight = _calculateExpandedHeight(context);
 
     return Scaffold(
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
           SliverAppBar(
-            expandedHeight: 320,
+            expandedHeight: expandedHeight,
             pinned: true,
             stretch: true,
-            backgroundColor:
-                colorScheme.surface, // Use theme color for collapsed state
+            backgroundColor: colorScheme.surface,
             surfaceTintColor: Colors.transparent,
             title: AnimatedOpacity(
               duration: const Duration(milliseconds: 200),
@@ -538,21 +542,18 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
               builder: (context, constraints) {
                 final collapseRatio =
                     (constraints.maxHeight - kToolbarHeight) /
-                    (320 - kToolbarHeight);
+                    (expandedHeight - kToolbarHeight);
                 final showContent = collapseRatio > 0.3;
 
                 return FlexibleSpaceBar(
-                  collapseMode: CollapseMode.none,
+                  collapseMode: CollapseMode.pin,
                   background: _buildHeaderBackground(
                     context,
                     colorScheme,
-                    coverSize,
+                    expandedHeight,
                     showContent,
                   ),
-                  stretchModes: const [
-                    StretchMode.zoomBackground,
-                    StretchMode.blurBackground,
-                  ],
+                  stretchModes: const [StretchMode.zoomBackground],
                 );
               },
             ),
@@ -560,10 +561,10 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: colorScheme.surface.withValues(alpha: 0.8),
+                  color: Colors.black.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+                child: const Icon(Icons.arrow_back, color: Colors.white),
               ),
               onPressed: _popWithMetadataResult,
             ),
@@ -572,10 +573,10 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: colorScheme.surface.withValues(alpha: 0.8),
+                    color: Colors.black.withValues(alpha: 0.4),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.more_vert, color: colorScheme.onSurface),
+                  child: const Icon(Icons.more_vert, color: Colors.white),
                 ),
                 onPressed: () => _showOptionsMenu(context, ref, colorScheme),
               ),
@@ -588,10 +589,6 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTrackInfoCard(context, colorScheme, _fileExists),
-
-                  const SizedBox(height: 16),
-
                   _buildMetadataCard(context, colorScheme, _fileSize),
 
                   const SizedBox(height: 16),
@@ -624,34 +621,23 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   Widget _buildHeaderBackground(
     BuildContext context,
     ColorScheme colorScheme,
-    double coverSize,
+    double expandedHeight,
     bool showContent,
   ) {
-    final screenSize = MediaQuery.sizeOf(context);
-    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final backgroundCacheWidth = (screenSize.width * pixelRatio).round();
-    final backgroundCacheHeight = (screenSize.height * 0.65 * pixelRatio)
-        .round();
-    final coverCacheSize = (coverSize * pixelRatio).round();
-
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Blurred cover art background
+        // Full-screen cover background
         if (_hasPath(_embeddedCoverPreviewPath))
           Image.file(
             File(_embeddedCoverPreviewPath!),
             fit: BoxFit.cover,
-            cacheWidth: backgroundCacheWidth,
-            cacheHeight: backgroundCacheHeight,
             errorBuilder: (_, _, _) => Container(color: colorScheme.surface),
           )
         else if (_coverUrl != null)
           CachedNetworkImage(
             imageUrl: _coverUrl!,
             fit: BoxFit.cover,
-            memCacheWidth: backgroundCacheWidth,
-            memCacheHeight: backgroundCacheHeight,
             cacheManager: CoverCacheManager.instance,
             placeholder: (_, _) => Container(color: colorScheme.surface),
             errorWidget: (_, _, _) => Container(color: colorScheme.surface),
@@ -660,205 +646,210 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
           Image.file(
             File(_localCoverPath!),
             fit: BoxFit.cover,
-            cacheWidth: backgroundCacheWidth,
-            cacheHeight: backgroundCacheHeight,
             errorBuilder: (_, _, _) => Container(color: colorScheme.surface),
           )
         else
-          Container(color: colorScheme.surface),
-
-        // Blur filter
-        ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-            child: Container(color: colorScheme.surface.withValues(alpha: 0.4)),
+          Container(
+            color: colorScheme.surfaceContainerHighest,
+            child: Icon(
+              Icons.music_note,
+              size: 80,
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
-
-        // Bottom fade to surface
+        // Bottom gradient for readability
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
-          height: 80,
+          height: expandedHeight * 0.65,
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  colorScheme.surface.withValues(alpha: 0.0),
-                  colorScheme.surface,
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.85),
                 ],
               ),
             ),
           ),
         ),
-
-        // Cover art
-        AnimatedOpacity(
-          duration: const Duration(milliseconds: 150),
-          opacity: showContent ? 1.0 : 0.0,
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 60),
-              child: Hero(
-                tag: 'cover_$_itemId',
-                child: Container(
-                  width: coverSize,
-                  height: coverSize,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
-                      ),
-                    ],
+        // Track info overlay at bottom
+        Positioned(
+          left: 20,
+          right: 20,
+          bottom: 40,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 150),
+            opacity: showContent ? 1.0 : 0.0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trackName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: _hasPath(_embeddedCoverPreviewPath)
-                        ? Image.file(
-                            File(_embeddedCoverPreviewPath!),
-                            fit: BoxFit.cover,
-                            cacheWidth: coverCacheSize,
-                            cacheHeight: coverCacheSize,
-                            errorBuilder: (_, _, _) => Container(
-                              color: colorScheme.surfaceContainerHighest,
-                              child: Icon(
-                                Icons.music_note,
-                                size: 64,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : _coverUrl != null
-                        ? CachedNetworkImage(
-                            imageUrl: _coverUrl!,
-                            fit: BoxFit.cover,
-                            memCacheWidth: (coverSize * 2).toInt(),
-                            cacheManager: CoverCacheManager.instance,
-                            placeholder: (_, _) => Container(
-                              color: colorScheme.surfaceContainerHighest,
-                              child: Icon(
-                                Icons.music_note,
-                                size: 64,
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        : _localCoverPath != null && _localCoverPath!.isNotEmpty
-                        ? Image.file(
-                            File(_localCoverPath!),
-                            fit: BoxFit.cover,
-                            cacheWidth: coverCacheSize,
-                            cacheHeight: coverCacheSize,
-                          )
-                        : Container(
-                            color: colorScheme.surfaceContainerHighest,
-                            child: Icon(
-                              Icons.music_note,
-                              size: 64,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
+                const SizedBox(height: 6),
+                Text(
+                  artistName,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  albumName,
+                  style: const TextStyle(color: Colors.white54, fontSize: 14),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (_quality != null && _quality!.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _quality!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    if (duration != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _formatDuration(duration!),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    if (_service != 'local')
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _service[0].toUpperCase() + _service.substring(1),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.folder,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Local',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_hasCheckedFile && !_fileExists)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.warning_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              context.l10n.trackFileNotFound,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildTrackInfoCard(
-    BuildContext context,
-    ColorScheme colorScheme,
-    bool fileExists,
-  ) {
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              trackName,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-
-            Text(
-              artistName,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: colorScheme.primary),
-            ),
-            const SizedBox(height: 8),
-
-            Row(
-              children: [
-                Icon(
-                  Icons.album,
-                  size: 16,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    albumName,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            if (!fileExists) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.warning_rounded,
-                      size: 16,
-                      color: colorScheme.onErrorContainer,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      context.l10n.trackFileNotFound,
-                      style: TextStyle(
-                        color: colorScheme.onErrorContainer,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 
@@ -1722,9 +1713,19 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     }
   }
 
+  String _sanitizeFileNameSegment(String value) {
+    var sanitized = value.replaceAll(_invalidFileNameChars, '_').trim();
+    sanitized = sanitized.replaceAll(_leadingOrTrailingDots, '');
+    sanitized = sanitized.replaceAll(_multiUnderscore, '_');
+    if (sanitized.isEmpty) {
+      return 'untitled';
+    }
+    return sanitized;
+  }
+
   String _buildSaveBaseName() {
-    final artist = artistName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-    final track = trackName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final artist = _sanitizeFileNameSegment(artistName);
+    final track = _sanitizeFileNameSegment(trackName);
     return '$artist - $track';
   }
 
@@ -2336,6 +2337,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   ) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -2566,6 +2568,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -3003,6 +3006,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
     final saved = await showModalBottomSheet<bool>(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
@@ -3039,6 +3043,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
   ) {
     showDialog(
       context: context,
+      useRootNavigator: false,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.trackDeleteConfirmTitle),
         content: Text(context.l10n.trackDeleteConfirmMessage),
@@ -3088,7 +3093,15 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
   Future<void> _openFile(BuildContext context, String filePath) async {
     try {
-      await openFile(filePath);
+      await ref
+          .read(playbackProvider.notifier)
+          .playLocalPath(
+            path: filePath,
+            title: trackName,
+            artist: artistName,
+            album: albumName,
+            coverUrl: _coverUrl ?? '',
+          );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

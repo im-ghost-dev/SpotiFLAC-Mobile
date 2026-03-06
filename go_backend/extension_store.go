@@ -77,7 +77,6 @@ type StoreRegistry struct {
 	Extensions []StoreExtension `json:"extensions"`
 }
 
-// StoreExtensionResponse is the normalized response sent to Flutter
 type StoreExtensionResponse struct {
 	ID               string   `json:"id"`
 	Name             string   `json:"name"`
@@ -218,7 +217,7 @@ func (s *ExtensionStore) FetchRegistry(forceRefresh bool) (*StoreRegistry, error
 
 	LogInfo("ExtensionStore", "Fetching registry from %s", s.registryURL)
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := NewHTTPClientWithTimeout(30 * time.Second)
 	resp, err := client.Get(s.registryURL)
 	if err != nil {
 		if s.cache != nil {
@@ -310,7 +309,7 @@ func (s *ExtensionStore) DownloadExtension(extensionID string, destPath string) 
 
 	LogInfo("ExtensionStore", "Downloading %s from %s", ext.getDisplayName(), ext.getDownloadURL())
 
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := NewHTTPClientWithTimeout(5 * time.Minute)
 	resp, err := client.Get(ext.getDownloadURL())
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
@@ -421,7 +420,6 @@ func (s *ExtensionStore) ClearCache() {
 	LogInfo("ExtensionStore", "Cache cleared")
 }
 
-// Helper: case-insensitive contains
 func containsIgnoreCase(s, substr string) bool {
 	return containsStr(toLower(s), substr)
 }

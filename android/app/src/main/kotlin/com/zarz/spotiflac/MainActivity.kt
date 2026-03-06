@@ -4,21 +4,25 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.os.ParcelFileDescriptor
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.documentfile.provider.DocumentFile
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
 import io.flutter.embedding.android.FlutterFragment
-import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.android.RenderMode
 import io.flutter.embedding.android.TransparencyMode
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterShellArgs
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import gobackend.Gobackend
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -30,11 +34,23 @@ import java.util.Locale
 
 class MainActivity: FlutterFragmentActivity() {
     private val CHANNEL = "com.zarz.spotiflac/backend"
+    private val DOWNLOAD_PROGRESS_STREAM_CHANNEL =
+        "com.zarz.spotiflac/download_progress_stream"
+    private val LIBRARY_SCAN_PROGRESS_STREAM_CHANNEL =
+        "com.zarz.spotiflac/library_scan_progress_stream"
+    private val STREAM_POLLING_INTERVAL_MS = 800L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var pendingSafTreeResult: MethodChannel.Result? = null
     private val safScanLock = Any()
     private val safDirLock = Any()
     private var safScanProgress = SafScanProgress()
+    private var downloadProgressStreamJob: Job? = null
+    private var downloadProgressEventSink: EventChannel.EventSink? = null
+    private var lastDownloadProgressPayload: String? = null
+    private var libraryScanProgressStreamJob: Job? = null
+    private var libraryScanProgressEventSink: EventChannel.EventSink? = null
+    private var lastLibraryScanProgressPayload: String? = null
+    private var flutterBackCallback: OnBackPressedCallback? = null
     @Volatile private var safScanCancel = false
     @Volatile private var safScanActive = false
     private val safTreeLauncher = registerForActivityResult(
@@ -381,6 +397,78 @@ class MainActivity: FlutterFragmentActivity() {
         return obj.toString()
     }
 
+    private fun readLibraryScanProgressJsonForStream(): String {
+        return if (safScanActive) {
+            safProgressToJson()
+        } else {
+            Gobackend.getLibraryScanProgressJSON()
+        }
+    }
+
+    private fun startDownloadProgressStream(sink: EventChannel.EventSink) {
+        stopDownloadProgressStream()
+        downloadProgressEventSink = sink
+        lastDownloadProgressPayload = null
+        downloadProgressStreamJob = scope.launch {
+            while (isActive && downloadProgressEventSink === sink) {
+                try {
+                    val payload = withContext(Dispatchers.IO) {
+                        Gobackend.getAllDownloadProgress()
+                    }
+                    if (payload != lastDownloadProgressPayload) {
+                        lastDownloadProgressPayload = payload
+                        sink.success(payload)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w(
+                        "SpotiFLAC",
+                        "Download progress stream poll failed: ${e.message}",
+                    )
+                }
+                delay(STREAM_POLLING_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopDownloadProgressStream() {
+        downloadProgressStreamJob?.cancel()
+        downloadProgressStreamJob = null
+        downloadProgressEventSink = null
+        lastDownloadProgressPayload = null
+    }
+
+    private fun startLibraryScanProgressStream(sink: EventChannel.EventSink) {
+        stopLibraryScanProgressStream()
+        libraryScanProgressEventSink = sink
+        lastLibraryScanProgressPayload = null
+        libraryScanProgressStreamJob = scope.launch {
+            while (isActive && libraryScanProgressEventSink === sink) {
+                try {
+                    val payload = withContext(Dispatchers.IO) {
+                        readLibraryScanProgressJsonForStream()
+                    }
+                    if (payload != lastLibraryScanProgressPayload) {
+                        lastLibraryScanProgressPayload = payload
+                        sink.success(payload)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.w(
+                        "SpotiFLAC",
+                        "Library scan progress stream poll failed: ${e.message}",
+                    )
+                }
+                delay(STREAM_POLLING_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopLibraryScanProgressStream() {
+        libraryScanProgressStreamJob?.cancel()
+        libraryScanProgressStreamJob = null
+        libraryScanProgressEventSink = null
+        lastLibraryScanProgressPayload = null
+    }
+
     private fun resolveSafFile(treeUriStr: String, relativeDir: String, fileName: String): String {
         val obj = JSONObject()
         if (treeUriStr.isBlank() || fileName.isBlank()) {
@@ -666,21 +754,13 @@ class MainActivity: FlutterFragmentActivity() {
 
         val pfd = contentResolver.openFileDescriptor(document.uri, "rw")
             ?: return errorJson("Failed to open SAF file")
-        var fdHandedOffToGo = false
 
+        var detachedFd: Int? = null
         try {
-            // Keep the original PFD open so the document provider receives close signaling.
-            // Pass a duplicated FD to Go and detach only the duplicate.
-            val writerPfd = ParcelFileDescriptor.dup(pfd.fileDescriptor)
-            val detachedFd = writerPfd.detachFd()
-            try {
-                writerPfd.close()
-            } catch (_: Exception) {}
-
-            // After detach, ownership is intended for Go. Kotlin must never close this FD,
-            // otherwise Android fdsan may abort on double-close during cancellation races.
-            fdHandedOffToGo = true
-            req.put("output_path", "/proc/self/fd/$detachedFd")
+            // Prefer handing off a detached FD directly to Go.
+            // Some devices/providers reject re-opening /proc/self/fd/* with permission denied.
+            detachedFd = pfd.detachFd()
+            req.put("output_path", "")
             req.put("output_fd", detachedFd)
             req.put("output_ext", outputExt)
             val response = downloader(req.toString())
@@ -696,12 +776,13 @@ class MainActivity: FlutterFragmentActivity() {
             document.delete()
             return errorJson("SAF download failed: ${e.message}")
         } finally {
-            if (!fdHandedOffToGo) {
-                android.util.Log.w("SpotiFLAC", "SAF writer FD was not handed off to Go")
+            // If detachFd() failed before handoff, close original ParcelFileDescriptor.
+            // Otherwise Go owns the detached raw FD and is responsible for closing it.
+            if (detachedFd == null) {
+                try {
+                    pfd.close()
+                } catch (_: Exception) {}
             }
-            try {
-                pfd.close()
-            } catch (_: Exception) {}
         }
     }
 
@@ -1260,19 +1341,92 @@ class MainActivity: FlutterFragmentActivity() {
         return respObj.toString()
     }
 
+    // Disable Flutter's built-in deep linking so that incoming ACTION_VIEW URLs
+    // (Spotify, Deezer, Tidal, YouTube Music) are NOT forwarded to GoRouter.
+    // We handle these URLs ourselves via receive_sharing_intent + ShareIntentService.
+    override fun shouldHandleDeeplinking(): Boolean = false
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         // Update the intent so receive_sharing_intent can access the new data
         setIntent(intent)
     }
 
+    override fun onDestroy() {
+        try {
+            Gobackend.cleanupExtensions()
+        } catch (e: Exception) {
+            android.util.Log.w("SpotiFLAC", "Failed to cleanup extensions on destroy: ${e.message}")
+        }
+        stopDownloadProgressStream()
+        stopLibraryScanProgressStream()
+        super.onDestroy()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        // Always-enabled back callback to ensure back presses reach Flutter.
+        // Nested tab navigators can incorrectly set frameworkHandlesBack(false),
+        // which disables Flutter's own OnBackPressedCallback and causes the
+        // system default (finish activity) to run. This callback guarantees
+        // popRoute is always forwarded to Flutter, where PopScope handles it.
+        flutterBackCallback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                flutterEngine.navigationChannel.popRoute()
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, flutterBackCallback!!)
+
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        EventChannel(
+            messenger,
+            DOWNLOAD_PROGRESS_STREAM_CHANNEL,
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    if (events != null) {
+                        startDownloadProgressStream(events)
+                    }
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    stopDownloadProgressStream()
+                }
+            },
+        )
+
+        EventChannel(
+            messenger,
+            LIBRARY_SCAN_PROGRESS_STREAM_CHANNEL,
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    if (events != null) {
+                        startLibraryScanProgressStream(events)
+                    }
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    stopLibraryScanProgressStream()
+                }
+            },
+        )
+
+        MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
             scope.launch {
                 try {
                     when (call.method) {
+                        "exitApp" -> {
+                            flutterBackCallback?.isEnabled = false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                finishAndRemoveTask()
+                            } else {
+                                finish()
+                            }
+                            result.success(null)
+                        }
                         "parseSpotifyUrl" -> {
                             val url = call.argument<String>("url") ?: ""
                             val response = withContext(Dispatchers.IO) {
@@ -1301,6 +1455,14 @@ class MainActivity: FlutterFragmentActivity() {
                             val artistLimit = call.argument<Int>("artist_limit") ?: 3
                             val response = withContext(Dispatchers.IO) {
                                 Gobackend.searchSpotifyAll(query, trackLimit.toLong(), artistLimit.toLong())
+                            }
+                            result.success(response)
+                        }
+                        "getSpotifyRelatedArtists" -> {
+                            val artistId = call.argument<String>("artist_id") ?: ""
+                            val limit = call.argument<Int>("limit") ?: 12
+                            val response = withContext(Dispatchers.IO) {
+                                Gobackend.getSpotifyRelatedArtists(artistId, limit.toLong())
                             }
                             result.success(response)
                         }
@@ -1365,6 +1527,14 @@ class MainActivity: FlutterFragmentActivity() {
                             val path = call.argument<String>("path") ?: ""
                             withContext(Dispatchers.IO) {
                                 Gobackend.setDownloadDirectory(path)
+                            }
+                            result.success(null)
+                        }
+                        "setNetworkCompatibilityOptions", "setSongLinkNetworkOptions" -> {
+                            val allowHttp = call.argument<Boolean>("allow_http") ?: false
+                            val insecureTls = call.argument<Boolean>("insecure_tls") ?: false
+                            withContext(Dispatchers.IO) {
+                                Gobackend.setNetworkCompatibilityOptions(allowHttp, insecureTls)
                             }
                             result.success(null)
                         }
@@ -1535,6 +1705,28 @@ class MainActivity: FlutterFragmentActivity() {
                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                     putExtra(Intent.EXTRA_STREAM, uri)
                                     setType(type)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    if (title.isNotBlank()) {
+                                        putExtra(Intent.EXTRA_SUBJECT, title)
+                                    }
+                                }
+                                startActivity(Intent.createChooser(shareIntent, title.ifBlank { "Share" }))
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("share_failed", e.message, null)
+                            }
+                        }
+                        "shareMultipleContentUris" -> {
+                            val uriStrings = call.argument<List<String>>("uris") ?: emptyList()
+                            val title = call.argument<String>("title") ?: ""
+                            try {
+                                val uris = ArrayList<Uri>(uriStrings.size)
+                                for (s in uriStrings) {
+                                    uris.add(Uri.parse(s))
+                                }
+                                val shareIntent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                                    putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                                    setType("audio/*")
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     if (title.isNotBlank()) {
                                         putExtra(Intent.EXTRA_SUBJECT, title)
@@ -1948,6 +2140,14 @@ class MainActivity: FlutterFragmentActivity() {
                             val filter = call.argument<String>("filter") ?: ""
                             val response = withContext(Dispatchers.IO) {
                                 Gobackend.searchDeezerAll(query, trackLimit.toLong(), artistLimit.toLong(), filter)
+                            }
+                            result.success(response)
+                        }
+                        "getDeezerRelatedArtists" -> {
+                            val artistId = call.argument<String>("artist_id") ?: ""
+                            val limit = call.argument<Int>("limit") ?: 12
+                            val response = withContext(Dispatchers.IO) {
+                                Gobackend.getDeezerRelatedArtists(artistId, limit.toLong())
                             }
                             result.success(response)
                         }

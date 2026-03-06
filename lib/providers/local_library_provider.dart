@@ -121,15 +121,25 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
   final NotificationService _notificationService = NotificationService();
   static const _progressPollingInterval = Duration(milliseconds: 800);
   Timer? _progressTimer;
+  Timer? _progressStreamBootstrapTimer;
+  StreamSubscription<Map<String, dynamic>>? _progressStreamSub;
   bool _isLoaded = false;
   bool _scanCancelRequested = false;
   int _progressPollingErrorCount = 0;
   bool _isProgressPollingInFlight = false;
+  bool _hasReceivedProgressStreamEvent = false;
+  bool _usingProgressStream = false;
+  static const _scanNotificationHeartbeat = Duration(seconds: 4);
+  int _lastScanNotificationPercent = -1;
+  int _lastScanNotificationTotalFiles = -1;
+  DateTime _lastScanNotificationAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   LocalLibraryState build() {
     ref.onDispose(() {
       _progressTimer?.cancel();
+      _progressStreamBootstrapTimer?.cancel();
+      _progressStreamSub?.cancel();
     });
 
     Future.microtask(() async {
@@ -188,7 +198,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     if (raw.isEmpty) return const {};
 
     final cleaned = raw.startsWith('EXISTS:') ? raw.substring(7) : raw;
-    final keys = <String>{cleaned};
+    final keys = <String>{};
 
     void addNormalized(String value) {
       final trimmed = value.trim();
@@ -207,17 +217,41 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
           keys.add(decoded.toLowerCase());
         } catch (_) {}
       }
+
+      Uri? parsed;
+      try {
+        parsed = Uri.parse(trimmed);
+      } catch (_) {}
+
+      if (parsed != null && parsed.hasScheme) {
+        final noQueryOrFragment = parsed.replace(query: null, fragment: null);
+        keys.add(noQueryOrFragment.toString());
+        keys.add(noQueryOrFragment.toString().toLowerCase());
+
+        if (parsed.scheme == 'file') {
+          try {
+            final fileOnly = parsed.toFilePath();
+            if (fileOnly.isNotEmpty) {
+              keys.add(fileOnly);
+              keys.add(fileOnly.toLowerCase());
+              if (fileOnly.contains('\\')) {
+                final slash = fileOnly.replaceAll('\\', '/');
+                keys.add(slash);
+                keys.add(slash.toLowerCase());
+              }
+            }
+          } catch (_) {}
+        }
+      } else if (trimmed.startsWith('/')) {
+        try {
+          final asFileUri = Uri.file(trimmed).toString();
+          keys.add(asFileUri);
+          keys.add(asFileUri.toLowerCase());
+        } catch (_) {}
+      }
     }
 
     addNormalized(cleaned);
-
-    if (cleaned.startsWith('content://')) {
-      try {
-        final uri = Uri.parse(cleaned);
-        addNormalized(uri.toString());
-        addNormalized(uri.replace(query: null, fragment: null).toString());
-      } catch (_) {}
-    }
 
     return keys;
   }
@@ -257,12 +291,19 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
       scanErrorCount: 0,
       scanWasCancelled: false,
     );
-    await _showScanProgressNotification(
+    _resetScanNotificationTracking();
+    if (_shouldShowScanProgressNotification(
       progress: 0,
-      scannedFiles: 0,
       totalFiles: 0,
-      currentFile: null,
-    );
+      isComplete: false,
+    )) {
+      await _showScanProgressNotification(
+        progress: 0,
+        scannedFiles: 0,
+        totalFiles: 0,
+        currentFile: null,
+      );
+    }
 
     try {
       final appSupportDir = await getApplicationSupportDirectory();
@@ -328,7 +369,11 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
           _log.i('Skipped $skippedDownloads files already in download history');
         }
 
-        await _db.upsertBatch(items.map((e) => e.toJson()).toList());
+        // Full scan should replace library index entirely.
+        await _db.clearAll();
+        if (items.isNotEmpty) {
+          await _db.upsertBatch(items.map((e) => e.toJson()).toList());
+        }
 
         final now = DateTime.now();
         try {
@@ -420,10 +465,24 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
         final currentByPath = <String, LocalLibraryItem>{
           for (final item in state.items) item.filePath: item,
         };
+        final existingDownloadedPaths = <String>[];
+        currentByPath.removeWhere((path, _) {
+          final shouldExclude = _isDownloadedPath(path, downloadedPathKeys);
+          if (shouldExclude) {
+            existingDownloadedPaths.add(path);
+          }
+          return shouldExclude;
+        });
+        if (existingDownloadedPaths.isNotEmpty) {
+          final removed = await _db.deleteByPaths(existingDownloadedPaths);
+          _log.i(
+            'Removed $removed downloaded tracks already present in local library index',
+          );
+        }
 
         // Upsert new/modified items (excluding downloaded files)
         final updatedItems = <LocalLibraryItem>[];
-        int skippedDownloads = 0;
+        int skippedDownloads = existingDownloadedPaths.length;
         if (scannedList.isNotEmpty) {
           for (final json in scannedList) {
             final map = json as Map<String, dynamic>;
@@ -500,48 +559,74 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
 
   void _startProgressPolling() {
     _progressTimer?.cancel();
+    _progressStreamBootstrapTimer?.cancel();
+    _progressStreamBootstrapTimer = null;
+    _progressStreamSub?.cancel();
+    _progressStreamSub = null;
+    _hasReceivedProgressStreamEvent = false;
+    _usingProgressStream = false;
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      _progressStreamSub = PlatformBridge.libraryScanProgressStream().listen(
+        (progress) async {
+          _hasReceivedProgressStreamEvent = true;
+          _usingProgressStream = true;
+          _progressStreamBootstrapTimer?.cancel();
+          _progressStreamBootstrapTimer = null;
+          if (_isProgressPollingInFlight) return;
+          _isProgressPollingInFlight = true;
+          try {
+            await _handleLibraryScanProgress(progress);
+            _progressPollingErrorCount = 0;
+          } catch (e) {
+            _progressPollingErrorCount++;
+            if (_progressPollingErrorCount <= 3) {
+              _log.w('Library scan progress stream processing failed: $e');
+            }
+          } finally {
+            _isProgressPollingInFlight = false;
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (_usingProgressStream) {
+            _log.w(
+              'Library scan progress stream failed, fallback to polling: $error',
+            );
+          }
+          _progressStreamSub?.cancel();
+          _progressStreamSub = null;
+          _usingProgressStream = false;
+          _progressStreamBootstrapTimer?.cancel();
+          _progressStreamBootstrapTimer = null;
+          _startProgressPollingTimer();
+        },
+        cancelOnError: false,
+      );
+
+      _progressStreamBootstrapTimer = Timer(const Duration(seconds: 3), () {
+        if (_hasReceivedProgressStreamEvent) {
+          return;
+        }
+        _log.w('Library scan progress stream timeout, fallback to polling');
+        _progressStreamSub?.cancel();
+        _progressStreamSub = null;
+        _usingProgressStream = false;
+        _startProgressPollingTimer();
+      });
+      return;
+    }
+
+    _startProgressPollingTimer();
+  }
+
+  void _startProgressPollingTimer() {
+    _progressTimer?.cancel();
     _progressTimer = Timer.periodic(_progressPollingInterval, (_) async {
       if (_isProgressPollingInFlight) return;
       _isProgressPollingInFlight = true;
       try {
         final progress = await PlatformBridge.getLibraryScanProgress();
-        final nextProgress =
-            (progress['progress_pct'] as num?)?.toDouble() ?? 0;
-        final normalizedProgress = ((nextProgress * 10).round() / 10).clamp(
-          0.0,
-          100.0,
-        );
-        final currentFile = progress['current_file'] as String?;
-        final totalFiles = progress['total_files'] as int? ?? 0;
-        final scannedFiles = progress['scanned_files'] as int? ?? 0;
-        final errorCount = progress['error_count'] as int? ?? 0;
-
-        final shouldUpdateState =
-            state.scanProgress != normalizedProgress ||
-            state.scanCurrentFile != currentFile ||
-            state.scanTotalFiles != totalFiles ||
-            state.scannedFiles != scannedFiles ||
-            state.scanErrorCount != errorCount;
-
-        if (shouldUpdateState) {
-          state = state.copyWith(
-            scanProgress: normalizedProgress,
-            scanCurrentFile: currentFile,
-            scanTotalFiles: totalFiles,
-            scannedFiles: scannedFiles,
-            scanErrorCount: errorCount,
-          );
-          await _showScanProgressNotification(
-            progress: normalizedProgress,
-            scannedFiles: scannedFiles,
-            totalFiles: totalFiles,
-            currentFile: currentFile,
-          );
-        }
-
-        if (progress['is_complete'] == true) {
-          _stopProgressPolling();
-        }
+        await _handleLibraryScanProgress(progress);
         _progressPollingErrorCount = 0;
       } catch (e) {
         _progressPollingErrorCount++;
@@ -554,11 +639,93 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     });
   }
 
+  Future<void> _handleLibraryScanProgress(Map<String, dynamic> progress) async {
+    final nextProgress = (progress['progress_pct'] as num?)?.toDouble() ?? 0;
+    final normalizedProgress = ((nextProgress * 10).round() / 10).clamp(
+      0.0,
+      100.0,
+    );
+    final currentFile = progress['current_file'] as String?;
+    final totalFiles = (progress['total_files'] as num?)?.toInt() ?? 0;
+    final scannedFiles = (progress['scanned_files'] as num?)?.toInt() ?? 0;
+    final errorCount = (progress['error_count'] as num?)?.toInt() ?? 0;
+    final isComplete = progress['is_complete'] == true;
+
+    final shouldUpdateState =
+        state.scanProgress != normalizedProgress ||
+        state.scanCurrentFile != currentFile ||
+        state.scanTotalFiles != totalFiles ||
+        state.scannedFiles != scannedFiles ||
+        state.scanErrorCount != errorCount;
+
+    if (shouldUpdateState) {
+      state = state.copyWith(
+        scanProgress: normalizedProgress,
+        scanCurrentFile: currentFile,
+        scanTotalFiles: totalFiles,
+        scannedFiles: scannedFiles,
+        scanErrorCount: errorCount,
+      );
+    }
+
+    if (_shouldShowScanProgressNotification(
+      progress: normalizedProgress,
+      totalFiles: totalFiles,
+      isComplete: isComplete,
+    )) {
+      await _showScanProgressNotification(
+        progress: normalizedProgress,
+        scannedFiles: scannedFiles,
+        totalFiles: totalFiles,
+        currentFile: currentFile,
+      );
+    }
+
+    if (isComplete) {
+      _stopProgressPolling();
+    }
+  }
+
   void _stopProgressPolling() {
     _progressTimer?.cancel();
+    _progressStreamBootstrapTimer?.cancel();
+    _progressStreamSub?.cancel();
     _progressTimer = null;
+    _progressStreamBootstrapTimer = null;
+    _progressStreamSub = null;
     _progressPollingErrorCount = 0;
     _isProgressPollingInFlight = false;
+    _hasReceivedProgressStreamEvent = false;
+    _usingProgressStream = false;
+    _resetScanNotificationTracking();
+  }
+
+  void _resetScanNotificationTracking() {
+    _lastScanNotificationPercent = -1;
+    _lastScanNotificationTotalFiles = -1;
+    _lastScanNotificationAt = DateTime.fromMillisecondsSinceEpoch(0);
+  }
+
+  bool _shouldShowScanProgressNotification({
+    required double progress,
+    required int totalFiles,
+    required bool isComplete,
+  }) {
+    final now = DateTime.now();
+    final percent = progress.round().clamp(0, 100);
+    final percentChanged = percent != _lastScanNotificationPercent;
+    final totalFilesChanged = totalFiles != _lastScanNotificationTotalFiles;
+    final heartbeatDue =
+        now.difference(_lastScanNotificationAt) >= _scanNotificationHeartbeat;
+
+    if (!percentChanged && !totalFilesChanged && !isComplete && !heartbeatDue) {
+      return false;
+    }
+
+    _lastScanNotificationPercent = percent;
+    _lastScanNotificationTotalFiles = totalFiles;
+    _lastScanNotificationAt = now;
+    return true;
   }
 
   Future<void> cancelScan() async {

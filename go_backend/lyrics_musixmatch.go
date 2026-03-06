@@ -131,17 +131,7 @@ func (c *MusixmatchClient) FetchLyricsInLanguage(songID int64, language string) 
 
 	// Fall back to unsynced lyrics for selected language
 	if result.UnsyncedLyrics != nil && strings.TrimSpace(result.UnsyncedLyrics.Lyrics) != "" {
-		var lines []LyricsLine
-		for _, line := range strings.Split(result.UnsyncedLyrics.Lyrics, "\n") {
-			trimmed := strings.TrimSpace(line)
-			if trimmed != "" {
-				lines = append(lines, LyricsLine{
-					StartTimeMs: 0,
-					Words:       trimmed,
-					EndTimeMs:   0,
-				})
-			}
-		}
+		lines := plainTextLyricsLines(result.UnsyncedLyrics.Lyrics)
 
 		if len(lines) > 0 {
 			return &LyricsResponse{
@@ -187,17 +177,7 @@ func (c *MusixmatchClient) FetchLyrics(trackName, artistName string, durationSec
 
 	// Fall back to unsynced lyrics
 	if result.UnsyncedLyrics != nil && strings.TrimSpace(result.UnsyncedLyrics.Lyrics) != "" {
-		var lines []LyricsLine
-		for _, line := range strings.Split(result.UnsyncedLyrics.Lyrics, "\n") {
-			trimmed := strings.TrimSpace(line)
-			if trimmed != "" {
-				lines = append(lines, LyricsLine{
-					StartTimeMs: 0,
-					Words:       trimmed,
-					EndTimeMs:   0,
-				})
-			}
-		}
+		lines := plainTextLyricsLines(result.UnsyncedLyrics.Lyrics)
 
 		if len(lines) > 0 {
 			return &LyricsResponse{

@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:spotiflac_android/app.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
+import 'package:spotiflac_android/providers/library_collections_provider.dart';
+import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/services/notification_service.dart';
 import 'package:spotiflac_android/services/share_intent_service.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
@@ -93,6 +95,8 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
     _initializeAppServices();
     _initializeExtensions();
     ref.read(downloadHistoryProvider);
+    ref.read(localLibraryProvider);
+    ref.read(libraryCollectionsProvider);
   }
 
   Future<void> _initializeAppServices() async {

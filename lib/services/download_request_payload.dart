@@ -10,6 +10,7 @@ class DownloadRequestPayload {
   final String outputDir;
   final String filenameFormat;
   final String quality;
+  final bool embedMetadata;
   final bool embedLyrics;
   final bool embedMaxQualityCover;
   final int trackNumber;
@@ -33,6 +34,7 @@ class DownloadRequestPayload {
   final String safRelativeDir;
   final String safFileName;
   final String safOutputExt;
+  final String songLinkRegion;
 
   const DownloadRequestPayload({
     this.isrc = '',
@@ -46,6 +48,7 @@ class DownloadRequestPayload {
     required this.outputDir,
     required this.filenameFormat,
     this.quality = 'LOSSLESS',
+    this.embedMetadata = true,
     this.embedLyrics = true,
     this.embedMaxQualityCover = true,
     this.trackNumber = 1,
@@ -69,6 +72,7 @@ class DownloadRequestPayload {
     this.safRelativeDir = '',
     this.safFileName = '',
     this.safOutputExt = '',
+    this.songLinkRegion = 'US',
   });
 
   Map<String, dynamic> toJson() {
@@ -84,6 +88,7 @@ class DownloadRequestPayload {
       'output_dir': outputDir,
       'filename_format': filenameFormat,
       'quality': quality,
+      'embed_metadata': embedMetadata,
       'embed_lyrics': embedLyrics,
       'embed_max_quality_cover': embedMaxQualityCover,
       'track_number': trackNumber,
@@ -107,6 +112,7 @@ class DownloadRequestPayload {
       'saf_relative_dir': safRelativeDir,
       'saf_file_name': safFileName,
       'saf_output_ext': safOutputExt,
+      'songlink_region': songLinkRegion,
     };
   }
 
@@ -126,6 +132,7 @@ class DownloadRequestPayload {
       outputDir: outputDir,
       filenameFormat: filenameFormat,
       quality: quality,
+      embedMetadata: embedMetadata,
       embedLyrics: embedLyrics,
       embedMaxQualityCover: embedMaxQualityCover,
       trackNumber: trackNumber,
@@ -149,6 +156,7 @@ class DownloadRequestPayload {
       safRelativeDir: safRelativeDir,
       safFileName: safFileName,
       safOutputExt: safOutputExt,
+      songLinkRegion: songLinkRegion,
     );
   }
 }

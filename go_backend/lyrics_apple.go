@@ -355,18 +355,7 @@ func (c *AppleMusicClient) FetchLyrics(
 	}
 
 	// Fall back to plain text if no timestamps found
-	plainLines := strings.Split(lrcText, "\n")
-	var resultLines []LyricsLine
-	for _, line := range plainLines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			resultLines = append(resultLines, LyricsLine{
-				StartTimeMs: 0,
-				Words:       trimmed,
-				EndTimeMs:   0,
-			})
-		}
-	}
+	resultLines := plainTextLyricsLines(lrcText)
 
 	if len(resultLines) > 0 {
 		return &LyricsResponse{

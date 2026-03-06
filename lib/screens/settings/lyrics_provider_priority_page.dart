@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
-import 'package:spotiflac_android/utils/app_bar_layout.dart';
+import 'package:spotiflac_android/widgets/priority_settings_scaffold.dart';
 import 'package:spotiflac_android/widgets/settings_group.dart';
 
 class LyricsProviderPriorityPage extends ConsumerStatefulWidget {
@@ -16,6 +16,7 @@ class _LyricsProviderPriorityPageState
     extends ConsumerState<LyricsProviderPriorityPage> {
   static const _allProviderIds = [
     'lrclib',
+    'spotify_api',
     'netease',
     'musixmatch',
     'apple_music',
@@ -26,9 +27,8 @@ class _LyricsProviderPriorityPageState
   late List<String> _initialProviders;
   bool _hasChanges = false;
 
-  List<String> get _disabledProviders => _allProviderIds
-      .where((id) => !_enabledProviders.contains(id))
-      .toList();
+  List<String> get _disabledProviders =>
+      _allProviderIds.where((id) => !_enabledProviders.contains(id)).toList();
 
   @override
   void initState() {
@@ -39,204 +39,86 @@ class _LyricsProviderPriorityPageState
   }
 
   void _markChanged() {
-    final changed = _enabledProviders.length != _initialProviders.length ||
-        !_enabledProviders
-            .asMap()
-            .entries
-            .every((e) =>
-                e.key < _initialProviders.length &&
-                _initialProviders[e.key] == e.value);
+    final changed =
+        _enabledProviders.length != _initialProviders.length ||
+        !_enabledProviders.asMap().entries.every(
+          (e) =>
+              e.key < _initialProviders.length &&
+              _initialProviders[e.key] == e.value,
+        );
     setState(() => _hasChanges = changed);
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final topPadding = normalizedHeaderTopPadding(context);
     final disabled = _disabledProviders;
 
-    return PopScope(
-      canPop: !_hasChanges,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        final shouldPop = await _confirmDiscard(context);
-        if (shouldPop && context.mounted) {
-          Navigator.pop(context);
-        }
-      },
-      child: Scaffold(
-        body: CustomScrollView(
-          slivers: [
-            // ── Collapsing App Bar ──
-            SliverAppBar(
-              expandedHeight: 120 + topPadding,
-              collapsedHeight: kToolbarHeight,
-              floating: false,
-              pinned: true,
-              backgroundColor: colorScheme.surface,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () async {
-                  if (_hasChanges) {
-                    final shouldPop = await _confirmDiscard(context);
-                    if (shouldPop && context.mounted) {
-                      Navigator.pop(context);
-                    }
-                  } else {
-                    Navigator.pop(context);
-                  }
-                },
-              ),
-              actions: [
-                if (_hasChanges)
-                  TextButton(
-                    onPressed: _saveChanges,
-                    child: const Text('Save'),
-                  ),
-              ],
-              flexibleSpace: LayoutBuilder(
-                builder: (context, constraints) {
-                  final maxHeight = 120 + topPadding;
-                  final minHeight = kToolbarHeight + topPadding;
-                  final expandRatio = ((constraints.maxHeight - minHeight) /
-                          (maxHeight - minHeight))
-                      .clamp(0.0, 1.0);
-                  final leftPadding = 56 - (32 * expandRatio);
-                  return FlexibleSpaceBar(
-                    expandedTitleScale: 1.0,
-                    titlePadding:
-                        EdgeInsets.only(left: leftPadding, bottom: 16),
-                    title: Text(
-                      'Lyrics Providers',
-                      style: TextStyle(
-                        fontSize: 20 + (8 * expandRatio),
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  );
-                },
-              ),
+    return PrioritySettingsScaffold(
+      hasChanges: _hasChanges,
+      title: 'Lyrics Providers',
+      description:
+          'Enable, disable and reorder lyrics sources. Providers are tried top-to-bottom until lyrics are found.',
+      infoText:
+          'Extension lyrics providers always run before built-in providers. At least one provider must remain enabled.',
+      onSave: _saveChanges,
+      onConfirmDiscard: _confirmDiscard,
+      slivers: [
+        if (_enabledProviders.isNotEmpty)
+          SliverToBoxAdapter(
+            child: SettingsSectionHeader(
+              title: 'Enabled (${_enabledProviders.length})',
             ),
-
-            // ── Description ──
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Text(
-                  'Enable, disable and reorder lyrics sources. '
-                  'Providers are tried top-to-bottom until lyrics are found.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ),
+          ),
+        if (_enabledProviders.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverReorderableList(
+              itemCount: _enabledProviders.length,
+              itemBuilder: (context, index) {
+                final id = _enabledProviders[index];
+                final info = _getLyricsProviderInfo(id);
+                return _EnabledProviderItem(
+                  key: ValueKey(id),
+                  providerId: id,
+                  info: info,
+                  index: index,
+                  isFirst: index == 0,
+                  onToggle: () => _disableProvider(id),
+                );
+              },
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) newIndex -= 1;
+                  final item = _enabledProviders.removeAt(oldIndex);
+                  _enabledProviders.insert(newIndex, item);
+                });
+                _markChanged();
+              },
             ),
-
-            // ── Enabled section header ──
-            if (_enabledProviders.isNotEmpty)
-              SliverToBoxAdapter(
-                child: SettingsSectionHeader(
-                  title: 'Enabled (${_enabledProviders.length})',
-                ),
-              ),
-
-            // ── Reorderable enabled list ──
-            if (_enabledProviders.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverReorderableList(
-                  itemCount: _enabledProviders.length,
-                  itemBuilder: (context, index) {
-                    final id = _enabledProviders[index];
-                    final info = _getLyricsProviderInfo(id);
-                    return _EnabledProviderItem(
-                      key: ValueKey(id),
-                      providerId: id,
-                      info: info,
-                      index: index,
-                      isFirst: index == 0,
-                      onToggle: () => _disableProvider(id),
-                    );
-                  },
-                  onReorder: (oldIndex, newIndex) {
-                    setState(() {
-                      if (newIndex > oldIndex) newIndex -= 1;
-                      final item = _enabledProviders.removeAt(oldIndex);
-                      _enabledProviders.insert(newIndex, item);
-                    });
-                    _markChanged();
-                  },
-                ),
-              ),
-
-            // ── Disabled section header ──
-            if (disabled.isNotEmpty)
-              SliverToBoxAdapter(
-                child: SettingsSectionHeader(
-                  title: 'Disabled (${disabled.length})',
-                ),
-              ),
-
-            // ── Disabled list ──
-            if (disabled.isNotEmpty)
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final id = disabled[index];
-                      final info = _getLyricsProviderInfo(id);
-                      return _DisabledProviderItem(
-                        key: ValueKey(id),
-                        providerId: id,
-                        info: info,
-                        onToggle: () => _enableProvider(id),
-                      );
-                    },
-                    childCount: disabled.length,
-                  ),
-                ),
-              ),
-
-            // ── Info banner ──
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color:
-                        colorScheme.tertiaryContainer.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline,
-                          size: 20, color: colorScheme.tertiary),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Extension lyrics providers always run before '
-                          'built-in providers. At least one provider must '
-                          'remain enabled.',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onTertiaryContainer,
-                                  ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+          ),
+        if (disabled.isNotEmpty)
+          SliverToBoxAdapter(
+            child: SettingsSectionHeader(
+              title: 'Disabled (${disabled.length})',
             ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
-        ),
-      ),
+          ),
+        if (disabled.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final id = disabled[index];
+                final info = _getLyricsProviderInfo(id);
+                return _DisabledProviderItem(
+                  key: ValueKey(id),
+                  providerId: id,
+                  info: info,
+                  onToggle: () => _enableProvider(id),
+                );
+              }, childCount: disabled.length),
+            ),
+          ),
+      ],
     );
   }
 
@@ -282,8 +164,7 @@ class _LyricsProviderPriorityPageState
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Discard changes?'),
-        content:
-            const Text('You have unsaved changes that will be lost.'),
+        content: const Text('You have unsaved changes that will be lost.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -303,6 +184,12 @@ class _LyricsProviderPriorityPageState
 
   static _LyricsProviderInfo _getLyricsProviderInfo(String id) {
     switch (id) {
+      case 'spotify_api':
+        return _LyricsProviderInfo(
+          name: 'Spotify Lyrics API',
+          description: 'Spotify-sourced synced lyrics via community API',
+          icon: Icons.music_note_outlined,
+        );
       case 'lrclib':
         return _LyricsProviderInfo(
           name: 'LRCLIB',
@@ -419,17 +306,15 @@ class _EnabledProviderItem extends StatelessWidget {
                     children: [
                       Text(
                         info.name,
-                        style:
-                            Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.w500,
-                                ),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       Text(
                         info.description,
-                        style:
-                            Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -438,18 +323,12 @@ class _EnabledProviderItem extends StatelessWidget {
                 SizedBox(
                   height: 32,
                   child: FittedBox(
-                    child: Switch(
-                      value: true,
-                      onChanged: (_) => onToggle(),
-                    ),
+                    child: Switch(value: true, onChanged: (_) => onToggle()),
                   ),
                 ),
                 const SizedBox(width: 4),
                 // Drag handle
-                Icon(
-                  Icons.drag_handle,
-                  color: colorScheme.onSurfaceVariant,
-                ),
+                Icon(Icons.drag_handle, color: colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -498,8 +377,7 @@ class _DisabledProviderItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             onTap: onToggle,
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   // Empty space aligned with numbered badge
@@ -515,9 +393,7 @@ class _DisabledProviderItem extends StatelessWidget {
                       children: [
                         Text(
                           info.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
+                          style: Theme.of(context).textTheme.bodyLarge
                               ?.copyWith(
                                 fontWeight: FontWeight.w500,
                                 color: colorScheme.onSurfaceVariant,
@@ -525,12 +401,8 @@ class _DisabledProviderItem extends StatelessWidget {
                         ),
                         Text(
                           info.description,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(
-                                color: colorScheme.outline,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.outline),
                         ),
                       ],
                     ),
@@ -539,10 +411,7 @@ class _DisabledProviderItem extends StatelessWidget {
                   SizedBox(
                     height: 32,
                     child: FittedBox(
-                      child: Switch(
-                        value: false,
-                        onChanged: (_) => onToggle(),
-                      ),
+                      child: Switch(value: false, onChanged: (_) => onToggle()),
                     ),
                   ),
                 ],

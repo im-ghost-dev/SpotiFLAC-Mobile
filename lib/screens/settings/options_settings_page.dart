@@ -165,10 +165,23 @@ class OptionsSettingsPage extends ConsumerWidget {
                           .setUseExtensionProviders(v),
                     ),
                   SettingsSwitchItem(
+                    icon: Icons.sell_outlined,
+                    title: 'Embed Metadata',
+                    subtitle: settings.embedMetadata
+                        ? 'Write metadata, cover art, and embedded lyrics to files'
+                        : 'Disabled (advanced): skip all metadata embedding',
+                    value: settings.embedMetadata,
+                    onChanged: (v) =>
+                        ref.read(settingsProvider.notifier).setEmbedMetadata(v),
+                  ),
+                  SettingsSwitchItem(
                     icon: Icons.image,
                     title: context.l10n.optionsMaxQualityCover,
-                    subtitle: context.l10n.optionsMaxQualityCoverSubtitle,
+                    subtitle: settings.embedMetadata
+                        ? context.l10n.optionsMaxQualityCoverSubtitle
+                        : 'Disabled when metadata embedding is off',
                     value: settings.maxQualityCover,
+                    enabled: settings.embedMetadata,
                     onChanged: (v) => ref
                         .read(settingsProvider.notifier)
                         .setMaxQualityCover(v),
@@ -375,6 +388,7 @@ class OptionsSettingsPage extends ConsumerWidget {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
@@ -972,9 +986,9 @@ class _MetadataSourceSelector extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     context.l10n.optionsSpotifyDeprecationWarning,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.error,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
                   ),
                 ),
               ],

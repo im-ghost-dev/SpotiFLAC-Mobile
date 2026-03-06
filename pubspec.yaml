@@ -1,7 +1,7 @@
 name: spotiflac_android
 description: Download Spotify tracks in FLAC from Tidal, Qobuz & Amazon Music
 publish_to: "none"
-version: 3.6.8+82
+version: 3.7.1+104
 
 environment:
   sdk: ^3.10.0
@@ -17,7 +17,6 @@ dependencies:
 
   # State Management
   flutter_riverpod: ^3.1.0
-  riverpod_annotation: ^4.0.0
 
   # Navigation
   go_router: ^17.0.1
@@ -31,18 +30,14 @@ dependencies:
 
 # HTTP & Network
   http: ^1.6.0
-  dio: ^5.8.0
   connectivity_plus: 7.0.0
 
   # UI Components
-  cupertino_icons: ^1.0.8
   cached_network_image: ^3.4.1
   flutter_cache_manager: ^3.4.1
-  flutter_svg: ^2.1.0
 
   # Material Expressive 3 / Dynamic Color
   dynamic_color: ^1.7.0
-  material_color_utilities: ">=0.11.1 <0.14.0"
 
   # Permissions
   permission_handler: ^12.0.1
@@ -61,11 +56,11 @@ dependencies:
   logger: ^2.5.0
 
   # FFmpeg for audio conversion
-  ffmpeg_kit_flutter_new_audio: ^2.0.0
+  ffmpeg_kit_flutter_new_full: ^2.0.0
   open_filex: ^4.7.0
 
   # Notifications
-  flutter_local_notifications: 20.0.0
+  flutter_local_notifications: 21.0.0
 
 dev_dependencies:
   flutter_test:
@@ -80,10 +75,13 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "icon.png"
-  adaptive_icon_background: "#1a1a2e"
-  adaptive_icon_foreground: "icon.png"
+  image_path_android: "icon_android.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "icon_foreground_android.png"
+  adaptive_icon_foreground_inset: 16
   ios_content_mode: scaleAspectFill
   remove_alpha_ios: true
+  background_color_ios: "#000000"
 
 flutter:
   uses-material-design: true

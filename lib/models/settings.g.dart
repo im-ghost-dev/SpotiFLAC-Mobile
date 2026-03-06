@@ -14,6 +14,7 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
   storageMode: json['storageMode'] as String? ?? 'app',
   downloadTreeUri: json['downloadTreeUri'] as String? ?? '',
   autoFallback: json['autoFallback'] as bool? ?? true,
+  embedMetadata: json['embedMetadata'] as bool? ?? true,
   embedLyrics: json['embedLyrics'] as bool? ?? true,
   maxQualityCover: json['maxQualityCover'] as bool? ?? true,
   isFirstLaunch: json['isFirstLaunch'] as bool? ?? true,
@@ -44,10 +45,14 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
   locale: json['locale'] as String? ?? 'system',
   lyricsMode: json['lyricsMode'] as String? ?? 'embed',
   tidalHighFormat: json['tidalHighFormat'] as String? ?? 'mp3_320',
+  youtubeOpusBitrate: (json['youtubeOpusBitrate'] as num?)?.toInt() ?? 256,
+  youtubeMp3Bitrate: (json['youtubeMp3Bitrate'] as num?)?.toInt() ?? 320,
   useAllFilesAccess: json['useAllFilesAccess'] as bool? ?? false,
   autoExportFailedDownloads:
       json['autoExportFailedDownloads'] as bool? ?? false,
   downloadNetworkMode: json['downloadNetworkMode'] as String? ?? 'any',
+  networkCompatibilityMode: json['networkCompatibilityMode'] as bool? ?? false,
+  songLinkRegion: json['songLinkRegion'] as String? ?? 'US',
   localLibraryEnabled: json['localLibraryEnabled'] as bool? ?? false,
   localLibraryPath: json['localLibraryPath'] as String? ?? '',
   localLibraryShowDuplicates:
@@ -57,14 +62,22 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
       (json['lyricsProviders'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList() ??
-      const ['lrclib', 'musixmatch', 'netease', 'apple_music', 'qqmusic'],
+      const [
+        'lrclib',
+        'spotify_api',
+        'musixmatch',
+        'netease',
+        'apple_music',
+        'qqmusic',
+      ],
   lyricsIncludeTranslationNetease:
       json['lyricsIncludeTranslationNetease'] as bool? ?? false,
   lyricsIncludeRomanizationNetease:
       json['lyricsIncludeRomanizationNetease'] as bool? ?? false,
   lyricsMultiPersonWordByWord:
-      json['lyricsMultiPersonWordByWord'] as bool? ?? true,
+      json['lyricsMultiPersonWordByWord'] as bool? ?? false,
   musixmatchLanguage: json['musixmatchLanguage'] as String? ?? '',
+  lastSeenVersion: json['lastSeenVersion'] as String? ?? '',
 );
 
 Map<String, dynamic> _$AppSettingsToJson(
@@ -77,6 +90,7 @@ Map<String, dynamic> _$AppSettingsToJson(
   'storageMode': instance.storageMode,
   'downloadTreeUri': instance.downloadTreeUri,
   'autoFallback': instance.autoFallback,
+  'embedMetadata': instance.embedMetadata,
   'embedLyrics': instance.embedLyrics,
   'maxQualityCover': instance.maxQualityCover,
   'isFirstLaunch': instance.isFirstLaunch,
@@ -105,9 +119,13 @@ Map<String, dynamic> _$AppSettingsToJson(
   'locale': instance.locale,
   'lyricsMode': instance.lyricsMode,
   'tidalHighFormat': instance.tidalHighFormat,
+  'youtubeOpusBitrate': instance.youtubeOpusBitrate,
+  'youtubeMp3Bitrate': instance.youtubeMp3Bitrate,
   'useAllFilesAccess': instance.useAllFilesAccess,
   'autoExportFailedDownloads': instance.autoExportFailedDownloads,
   'downloadNetworkMode': instance.downloadNetworkMode,
+  'networkCompatibilityMode': instance.networkCompatibilityMode,
+  'songLinkRegion': instance.songLinkRegion,
   'localLibraryEnabled': instance.localLibraryEnabled,
   'localLibraryPath': instance.localLibraryPath,
   'localLibraryShowDuplicates': instance.localLibraryShowDuplicates,
@@ -117,4 +135,5 @@ Map<String, dynamic> _$AppSettingsToJson(
   'lyricsIncludeRomanizationNetease': instance.lyricsIncludeRomanizationNetease,
   'lyricsMultiPersonWordByWord': instance.lyricsMultiPersonWordByWord,
   'musixmatchLanguage': instance.musixmatchLanguage,
+  'lastSeenVersion': instance.lastSeenVersion,
 };
