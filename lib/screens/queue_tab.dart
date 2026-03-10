@@ -29,6 +29,7 @@ import 'package:spotiflac_android/screens/downloaded_album_screen.dart';
 import 'package:spotiflac_android/screens/library_tracks_folder_screen.dart';
 import 'package:spotiflac_android/screens/local_album_screen.dart';
 import 'package:spotiflac_android/utils/clickable_metadata.dart';
+import 'package:spotiflac_android/utils/path_match_keys.dart';
 import 'package:spotiflac_android/utils/string_utils.dart';
 
 enum LibraryItemSource { downloaded, local }
@@ -2112,10 +2113,22 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       if (count > 1) albumCount++;
     }
 
+    final downloadedPathKeys = <String>{};
+    for (final item in items) {
+      downloadedPathKeys.addAll(buildPathMatchKeys(item.filePath));
+    }
+
+    final dedupedLocalItems = localItems
+        .where((item) {
+          final localPathKeys = buildPathMatchKeys(item.filePath);
+          return !localPathKeys.any(downloadedPathKeys.contains);
+        })
+        .toList(growable: false);
+
     // Calculate local library stats
     final localAlbumCounts = <String, int>{};
     final localAlbumMap = <String, List<LocalLibraryItem>>{};
-    for (final item in localItems) {
+    for (final item in dedupedLocalItems) {
       final key =
           '${item.albumName.toLowerCase()}|${(item.albumArtist ?? item.artistName).toLowerCase()}';
       localAlbumCounts[key] = (localAlbumCounts[key] ?? 0) + 1;
@@ -2841,8 +2854,24 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         .map((item) => UnifiedLibraryItem.fromLocalLibrary(item))
         .toList(growable: false);
 
-    final merged = <UnifiedLibraryItem>[...unifiedDownloaded, ...unifiedLocal]
-      ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    final downloadedPathKeys = <String>{};
+    for (final item in unifiedDownloaded) {
+      downloadedPathKeys.addAll(buildPathMatchKeys(item.filePath));
+    }
+
+    final dedupedUnifiedLocal = <UnifiedLibraryItem>[];
+    for (final item in unifiedLocal) {
+      final localPathKeys = buildPathMatchKeys(item.filePath);
+      final overlapsDownloaded = localPathKeys.any(downloadedPathKeys.contains);
+      if (!overlapsDownloaded) {
+        dedupedUnifiedLocal.add(item);
+      }
+    }
+
+    final merged = <UnifiedLibraryItem>[
+      ...unifiedDownloaded,
+      ...dedupedUnifiedLocal,
+    ]..sort((a, b) => b.addedAt.compareTo(a.addedAt));
 
     _unifiedItemsCache[filterMode] = _UnifiedCacheEntry(
       historyItems: historyItems,

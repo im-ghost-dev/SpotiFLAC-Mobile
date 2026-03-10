@@ -9,6 +9,7 @@ import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/services/notification_service.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/logger.dart';
+import 'package:spotiflac_android/utils/path_match_keys.dart';
 
 final _log = AppLogger('LocalLibrary');
 
@@ -193,74 +194,11 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     await _loadFromDatabase();
   }
 
-  Set<String> _buildPathMatchKeys(String? filePath) {
-    final raw = filePath?.trim() ?? '';
-    if (raw.isEmpty) return const {};
-
-    final cleaned = raw.startsWith('EXISTS:') ? raw.substring(7) : raw;
-    final keys = <String>{};
-
-    void addNormalized(String value) {
-      final trimmed = value.trim();
-      if (trimmed.isEmpty) return;
-      keys.add(trimmed);
-      keys.add(trimmed.toLowerCase());
-      if (trimmed.contains('\\')) {
-        final slash = trimmed.replaceAll('\\', '/');
-        keys.add(slash);
-        keys.add(slash.toLowerCase());
-      }
-      if (trimmed.contains('%')) {
-        try {
-          final decoded = Uri.decodeFull(trimmed);
-          keys.add(decoded);
-          keys.add(decoded.toLowerCase());
-        } catch (_) {}
-      }
-
-      Uri? parsed;
-      try {
-        parsed = Uri.parse(trimmed);
-      } catch (_) {}
-
-      if (parsed != null && parsed.hasScheme) {
-        final noQueryOrFragment = parsed.replace(query: null, fragment: null);
-        keys.add(noQueryOrFragment.toString());
-        keys.add(noQueryOrFragment.toString().toLowerCase());
-
-        if (parsed.scheme == 'file') {
-          try {
-            final fileOnly = parsed.toFilePath();
-            if (fileOnly.isNotEmpty) {
-              keys.add(fileOnly);
-              keys.add(fileOnly.toLowerCase());
-              if (fileOnly.contains('\\')) {
-                final slash = fileOnly.replaceAll('\\', '/');
-                keys.add(slash);
-                keys.add(slash.toLowerCase());
-              }
-            }
-          } catch (_) {}
-        }
-      } else if (trimmed.startsWith('/')) {
-        try {
-          final asFileUri = Uri.file(trimmed).toString();
-          keys.add(asFileUri);
-          keys.add(asFileUri.toLowerCase());
-        } catch (_) {}
-      }
-    }
-
-    addNormalized(cleaned);
-
-    return keys;
-  }
-
   bool _isDownloadedPath(String? filePath, Set<String> downloadedPathKeys) {
     if (filePath == null || filePath.isEmpty || downloadedPathKeys.isEmpty) {
       return false;
     }
-    final candidateKeys = _buildPathMatchKeys(filePath);
+    final candidateKeys = buildPathMatchKeys(filePath);
     for (final key in candidateKeys) {
       if (downloadedPathKeys.contains(key)) {
         return true;
@@ -322,8 +260,9 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
     String? resolvedPath;
     bool didStartSecurityAccess = false;
     if (Platform.isIOS && iosBookmark != null && iosBookmark.isNotEmpty) {
-      resolvedPath =
-          await PlatformBridge.startAccessingIosBookmark(iosBookmark);
+      resolvedPath = await PlatformBridge.startAccessingIosBookmark(
+        iosBookmark,
+      );
       if (resolvedPath != null) {
         didStartSecurityAccess = true;
         _log.i('Started iOS security-scoped access: $resolvedPath');
@@ -354,7 +293,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
       };
       final downloadedPathKeys = <String>{};
       for (final path in allHistoryPaths) {
-        downloadedPathKeys.addAll(_buildPathMatchKeys(path));
+        downloadedPathKeys.addAll(buildPathMatchKeys(path));
       }
       _log.i(
         'Excluding ${allHistoryPaths.length} downloaded files from library scan '
@@ -834,8 +773,9 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
   Future<int> cleanupMissingFiles({String? iosBookmark}) async {
     bool didStartSecurityAccess = false;
     if (Platform.isIOS && iosBookmark != null && iosBookmark.isNotEmpty) {
-      final resolved =
-          await PlatformBridge.startAccessingIosBookmark(iosBookmark);
+      final resolved = await PlatformBridge.startAccessingIosBookmark(
+        iosBookmark,
+      );
       if (resolved != null) {
         didStartSecurityAccess = true;
       }
