@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -80,6 +81,37 @@ class _SearchResultBuckets {
     required this.artistItems,
   });
 }
+
+const _homeHistoryPreviewLimit = 48;
+
+class _HomeHistoryPreview {
+  final List<DownloadHistoryItem> items;
+
+  const _HomeHistoryPreview(this.items);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _HomeHistoryPreview && listEquals(items, other.items);
+
+  @override
+  int get hashCode => Object.hashAll(items);
+}
+
+final _homeHistoryPreviewProvider = Provider<List<DownloadHistoryItem>>((ref) {
+  final preview = ref.watch(
+    downloadHistoryProvider.select((s) {
+      final items = s.items;
+      if (items.length <= _homeHistoryPreviewLimit) {
+        return _HomeHistoryPreview(items);
+      }
+      return _HomeHistoryPreview(
+        items.take(_homeHistoryPreviewLimit).toList(growable: false),
+      );
+    }),
+  );
+  return preview.items;
+});
 
 _RecentAccessView _buildRecentAccessViewData(
   List<RecentAccessItem> items,
@@ -164,9 +196,7 @@ _RecentAccessView _buildRecentAccessViewData(
 }
 
 final recentAccessViewProvider = Provider<_RecentAccessView>((ref) {
-  final historyItems = ref.watch(
-    downloadHistoryProvider.select((s) => s.items),
-  );
+  final historyItems = ref.watch(_homeHistoryPreviewProvider);
   final recentAccessItems = ref.watch(
     recentAccessProvider.select((s) => s.items),
   );
@@ -987,9 +1017,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     final mediaQuery = MediaQuery.of(context);
     final screenHeight = mediaQuery.size.height;
     final topPadding = normalizedHeaderTopPadding(context);
-    final historyItems = ref.watch(
-      downloadHistoryProvider.select((s) => s.items),
-    );
+    final historyItems = ref.watch(_homeHistoryPreviewProvider);
 
     final recentModeRequested = isShowingRecentAccess || isSearchFocused;
     final showRecentAccess =
@@ -1822,9 +1850,9 @@ class _HomeTabState extends ConsumerState<HomeTab>
         ),
       );
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(context.l10n.homeAlbumInfoUnavailable)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.homeAlbumInfoUnavailable)),
+      );
     }
   }
 

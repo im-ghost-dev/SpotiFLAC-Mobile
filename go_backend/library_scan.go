@@ -1,10 +1,12 @@
 package gobackend
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -541,7 +543,43 @@ func ReadAudioMetadataWithDisplayName(filePath, displayNameHint string) (string,
 // ScanLibraryFolderIncremental performs an incremental scan of the library folder
 // existingFilesJSON is a JSON object mapping filePath -> modTime (unix millis)
 // Only files that are new or have changed modification time will be scanned
-func ScanLibraryFolderIncremental(folderPath, existingFilesJSON string) (string, error) {
+func loadExistingFilesSnapshot(snapshotPath string) (map[string]int64, error) {
+	existingFiles := make(map[string]int64)
+	if snapshotPath == "" {
+		return existingFiles, nil
+	}
+
+	file, err := os.Open(snapshotPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		modTime, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		existingFiles[parts[1]] = modTime
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return existingFiles, nil
+}
+
+func scanLibraryFolderIncrementalWithExistingFiles(folderPath string, existingFiles map[string]int64) (string, error) {
 	if folderPath == "" {
 		return "{}", fmt.Errorf("folder path is empty")
 	}
@@ -552,13 +590,6 @@ func ScanLibraryFolderIncremental(folderPath, existingFilesJSON string) (string,
 	}
 	if !info.IsDir() {
 		return "{}", fmt.Errorf("path is not a folder: %s", folderPath)
-	}
-
-	existingFiles := make(map[string]int64)
-	if existingFilesJSON != "" && existingFilesJSON != "{}" {
-		if err := json.Unmarshal([]byte(existingFilesJSON), &existingFiles); err != nil {
-			GoLog("[LibraryScan] Warning: failed to parse existing files JSON: %v\n", err)
-		}
 	}
 
 	GoLog("[LibraryScan] Incremental scan starting, %d existing files in database\n", len(existingFiles))
@@ -763,4 +794,25 @@ func ScanLibraryFolderIncremental(folderPath, existingFilesJSON string) (string,
 	}
 
 	return string(jsonBytes), nil
+}
+
+// ScanLibraryFolderIncremental performs an incremental scan of the library folder
+// existingFilesJSON is a JSON object mapping filePath -> modTime (unix millis)
+// Only files that are new or have changed modification time will be scanned
+func ScanLibraryFolderIncremental(folderPath, existingFilesJSON string) (string, error) {
+	existingFiles := make(map[string]int64)
+	if existingFilesJSON != "" && existingFilesJSON != "{}" {
+		if err := json.Unmarshal([]byte(existingFilesJSON), &existingFiles); err != nil {
+			GoLog("[LibraryScan] Warning: failed to parse existing files JSON: %v\n", err)
+		}
+	}
+	return scanLibraryFolderIncrementalWithExistingFiles(folderPath, existingFiles)
+}
+
+func ScanLibraryFolderIncrementalFromSnapshot(folderPath, snapshotPath string) (string, error) {
+	existingFiles, err := loadExistingFilesSnapshot(snapshotPath)
+	if err != nil {
+		return "{}", fmt.Errorf("failed to load incremental snapshot: %w", err)
+	}
+	return scanLibraryFolderIncrementalWithExistingFiles(folderPath, existingFiles)
 }

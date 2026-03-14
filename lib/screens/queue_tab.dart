@@ -314,6 +314,348 @@ class _QueueItemIdsSnapshot {
   int get hashCode => Object.hashAll(ids);
 }
 
+class _QueueGroupedAlbumFilterRequest {
+  final String searchQuery;
+  final String? filterSource;
+  final String? filterQuality;
+  final String? filterFormat;
+  final String sortMode;
+
+  const _QueueGroupedAlbumFilterRequest({
+    required this.searchQuery,
+    required this.filterSource,
+    required this.filterQuality,
+    required this.filterFormat,
+    required this.sortMode,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _QueueGroupedAlbumFilterRequest &&
+          searchQuery == other.searchQuery &&
+          filterSource == other.filterSource &&
+          filterQuality == other.filterQuality &&
+          filterFormat == other.filterFormat &&
+          sortMode == other.sortMode;
+
+  @override
+  int get hashCode => Object.hash(
+    searchQuery,
+    filterSource,
+    filterQuality,
+    filterFormat,
+    sortMode,
+  );
+}
+
+String _queueFileExtLower(String filePath) {
+  final slashIndex = filePath.lastIndexOf('/');
+  final dotIndex = filePath.lastIndexOf('.');
+  if (dotIndex == -1 || dotIndex < slashIndex + 1) {
+    return '';
+  }
+  return filePath.substring(dotIndex + 1).toLowerCase();
+}
+
+String? _queueLocalQualityLabel(LocalLibraryItem item) {
+  if (item.bitrate != null && item.bitrate! > 0) {
+    return '${item.bitrate}kbps';
+  }
+  if (item.bitDepth == null || item.bitDepth == 0 || item.sampleRate == null) {
+    return null;
+  }
+  return '${item.bitDepth}bit/${(item.sampleRate! / 1000).toStringAsFixed(1)}kHz';
+}
+
+bool _queuePassesQualityFilter(String? filterQuality, String? quality) {
+  if (filterQuality == null) return true;
+  if (quality == null) return filterQuality == 'lossy';
+  final normalized = quality.toLowerCase();
+  switch (filterQuality) {
+    case 'hires':
+      return normalized.startsWith('24');
+    case 'cd':
+      return normalized.startsWith('16');
+    case 'lossy':
+      return !normalized.startsWith('24') && !normalized.startsWith('16');
+    default:
+      return true;
+  }
+}
+
+bool _queuePassesFormatFilter(String? filterFormat, String filePath) {
+  if (filterFormat == null) return true;
+  return _queueFileExtLower(filePath) == filterFormat;
+}
+
+_HistoryStats _buildQueueHistoryStats(
+  List<DownloadHistoryItem> items, [
+  List<LocalLibraryItem> localItems = const [],
+]) {
+  final albumCounts = <String, int>{};
+  final albumMap = <String, List<DownloadHistoryItem>>{};
+  for (final item in items) {
+    final key =
+        '${item.albumName.toLowerCase()}|${(item.albumArtist ?? item.artistName).toLowerCase()}';
+    albumCounts[key] = (albumCounts[key] ?? 0) + 1;
+    albumMap.putIfAbsent(key, () => []).add(item);
+  }
+
+  var singleTracks = 0;
+  for (final item in items) {
+    final key =
+        '${item.albumName.toLowerCase()}|${(item.albumArtist ?? item.artistName).toLowerCase()}';
+    if ((albumCounts[key] ?? 0) <= 1) {
+      singleTracks++;
+    }
+  }
+
+  final groupedAlbums = <_GroupedAlbum>[];
+  albumMap.forEach((_, tracks) {
+    if (tracks.length <= 1) return;
+    tracks.sort((a, b) {
+      final aNum = a.trackNumber ?? 999;
+      final bNum = b.trackNumber ?? 999;
+      return aNum.compareTo(bNum);
+    });
+
+    groupedAlbums.add(
+      _GroupedAlbum(
+        albumName: tracks.first.albumName,
+        artistName: tracks.first.albumArtist ?? tracks.first.artistName,
+        coverUrl: tracks.first.coverUrl,
+        sampleFilePath: tracks.first.filePath,
+        tracks: tracks,
+        latestDownload: tracks
+            .map((t) => t.downloadedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b),
+      ),
+    );
+  });
+  groupedAlbums.sort((a, b) => b.latestDownload.compareTo(a.latestDownload));
+
+  var albumCount = 0;
+  for (final count in albumCounts.values) {
+    if (count > 1) albumCount++;
+  }
+
+  final downloadedPathKeys = <String>{};
+  for (final item in items) {
+    downloadedPathKeys.addAll(buildPathMatchKeys(item.filePath));
+  }
+
+  final dedupedLocalItems = localItems
+      .where((item) {
+        final localPathKeys = buildPathMatchKeys(item.filePath);
+        return !localPathKeys.any(downloadedPathKeys.contains);
+      })
+      .toList(growable: false);
+
+  final localAlbumCounts = <String, int>{};
+  final localAlbumMap = <String, List<LocalLibraryItem>>{};
+  for (final item in dedupedLocalItems) {
+    final key =
+        '${item.albumName.toLowerCase()}|${(item.albumArtist ?? item.artistName).toLowerCase()}';
+    localAlbumCounts[key] = (localAlbumCounts[key] ?? 0) + 1;
+    localAlbumMap.putIfAbsent(key, () => []).add(item);
+  }
+
+  var localAlbumCount = 0;
+  var localSingleTracks = 0;
+  for (final count in localAlbumCounts.values) {
+    if (count > 1) {
+      localAlbumCount++;
+    } else {
+      localSingleTracks++;
+    }
+  }
+
+  final groupedLocalAlbums = <_GroupedLocalAlbum>[];
+  localAlbumMap.forEach((_, tracks) {
+    if (tracks.length <= 1) return;
+    tracks.sort((a, b) {
+      final aNum = a.trackNumber ?? 999;
+      final bNum = b.trackNumber ?? 999;
+      return aNum.compareTo(bNum);
+    });
+
+    groupedLocalAlbums.add(
+      _GroupedLocalAlbum(
+        albumName: tracks.first.albumName,
+        artistName: tracks.first.albumArtist ?? tracks.first.artistName,
+        coverPath: tracks
+            .firstWhere(
+              (t) => t.coverPath != null && t.coverPath!.isNotEmpty,
+              orElse: () => tracks.first,
+            )
+            .coverPath,
+        tracks: tracks,
+        latestScanned: tracks
+            .map((t) => t.scannedAt)
+            .reduce((a, b) => a.isAfter(b) ? a : b),
+      ),
+    );
+  });
+  groupedLocalAlbums.sort((a, b) => b.latestScanned.compareTo(a.latestScanned));
+
+  return _HistoryStats(
+    albumCounts: albumCounts,
+    localAlbumCounts: localAlbumCounts,
+    groupedAlbums: groupedAlbums,
+    groupedLocalAlbums: groupedLocalAlbums,
+    albumCount: albumCount,
+    singleTracks: singleTracks,
+    localAlbumCount: localAlbumCount,
+    localSingleTracks: localSingleTracks,
+  );
+}
+
+List<_GroupedAlbum> _queueFilterGroupedAlbums(
+  List<_GroupedAlbum> albums,
+  _QueueGroupedAlbumFilterRequest request,
+) {
+  if (request.filterSource == 'local') return const [];
+  if (request.filterSource == null &&
+      request.filterQuality == null &&
+      request.filterFormat == null &&
+      request.searchQuery.isEmpty &&
+      request.sortMode == 'latest') {
+    return albums;
+  }
+
+  final result = <_GroupedAlbum>[];
+  for (final album in albums) {
+    if (request.searchQuery.isNotEmpty &&
+        !album.searchKey.contains(request.searchQuery)) {
+      continue;
+    }
+
+    if (request.filterQuality != null || request.filterFormat != null) {
+      var hasMatchingTrack = false;
+      for (final track in album.tracks) {
+        if (!_queuePassesQualityFilter(request.filterQuality, track.quality)) {
+          continue;
+        }
+        if (!_queuePassesFormatFilter(request.filterFormat, track.filePath)) {
+          continue;
+        }
+        hasMatchingTrack = true;
+        break;
+      }
+      if (!hasMatchingTrack) continue;
+    }
+
+    result.add(album);
+  }
+
+  switch (request.sortMode) {
+    case 'oldest':
+      result.sort((a, b) => a.latestDownload.compareTo(b.latestDownload));
+    case 'a-z':
+      result.sort(
+        (a, b) =>
+            a.albumName.toLowerCase().compareTo(b.albumName.toLowerCase()),
+      );
+    case 'z-a':
+      result.sort(
+        (a, b) =>
+            b.albumName.toLowerCase().compareTo(a.albumName.toLowerCase()),
+      );
+    default:
+      break;
+  }
+  return result;
+}
+
+List<_GroupedLocalAlbum> _queueFilterGroupedLocalAlbums(
+  List<_GroupedLocalAlbum> albums,
+  _QueueGroupedAlbumFilterRequest request,
+) {
+  if (request.filterSource == 'downloaded') return const [];
+  if (request.filterSource == null &&
+      request.filterQuality == null &&
+      request.filterFormat == null &&
+      request.searchQuery.isEmpty &&
+      request.sortMode == 'latest') {
+    return albums;
+  }
+
+  final result = <_GroupedLocalAlbum>[];
+  for (final album in albums) {
+    if (request.searchQuery.isNotEmpty &&
+        !album.searchKey.contains(request.searchQuery)) {
+      continue;
+    }
+
+    if (request.filterQuality != null || request.filterFormat != null) {
+      var hasMatchingTrack = false;
+      for (final track in album.tracks) {
+        if (!_queuePassesQualityFilter(
+          request.filterQuality,
+          _queueLocalQualityLabel(track),
+        )) {
+          continue;
+        }
+        if (!_queuePassesFormatFilter(request.filterFormat, track.filePath)) {
+          continue;
+        }
+        hasMatchingTrack = true;
+        break;
+      }
+      if (!hasMatchingTrack) continue;
+    }
+
+    result.add(album);
+  }
+
+  switch (request.sortMode) {
+    case 'oldest':
+      result.sort((a, b) => a.latestScanned.compareTo(b.latestScanned));
+    case 'a-z':
+      result.sort(
+        (a, b) =>
+            a.albumName.toLowerCase().compareTo(b.albumName.toLowerCase()),
+      );
+    case 'z-a':
+      result.sort(
+        (a, b) =>
+            b.albumName.toLowerCase().compareTo(a.albumName.toLowerCase()),
+      );
+    default:
+      break;
+  }
+  return result;
+}
+
+final _queueHistoryStatsProvider = Provider<_HistoryStats>((ref) {
+  final historyItems = ref.watch(
+    downloadHistoryProvider.select((s) => s.items),
+  );
+  final localLibraryEnabled = ref.watch(
+    settingsProvider.select((s) => s.localLibraryEnabled),
+  );
+  final localItems = localLibraryEnabled
+      ? ref.watch(localLibraryProvider.select((s) => s.items))
+      : const <LocalLibraryItem>[];
+  return _buildQueueHistoryStats(historyItems, localItems);
+});
+
+final _queueFilteredAlbumsProvider =
+    Provider.family<
+      ({List<_GroupedAlbum> albums, List<_GroupedLocalAlbum> localAlbums}),
+      _QueueGroupedAlbumFilterRequest
+    >((ref, request) {
+      final historyStats = ref.watch(_queueHistoryStatsProvider);
+      return (
+        albums: _queueFilterGroupedAlbums(historyStats.groupedAlbums, request),
+        localAlbums: _queueFilterGroupedLocalAlbums(
+          historyStats.groupedLocalAlbums,
+          request,
+        ),
+      );
+    });
+
 Map<String, List<String>> _filterHistoryInIsolate(Map<String, Object> payload) {
   final entries = (payload['entries'] as List).cast<List>();
   final albumCounts = (payload['albumCounts'] as Map).cast<String, int>();
@@ -431,14 +773,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   String? _filterCacheQuality;
   String? _filterCacheFormat;
   String _filterCacheSortMode = 'latest';
-  _HistoryStats? _groupedAlbumFilterHistoryStatsCache;
-  String _groupedAlbumFilterSearchQuery = '';
-  String? _groupedAlbumFilterSource;
-  String? _groupedAlbumFilterQuality;
-  String? _groupedAlbumFilterFormat;
-  String _groupedAlbumFilterSortMode = 'latest';
-  List<_GroupedAlbum> _filteredGroupedAlbumsCache = const [];
-  List<_GroupedLocalAlbum> _filteredGroupedLocalAlbumsCache = const [];
   // Advanced filters
   String? _filterSource; // null = all, 'downloaded', 'local'
   String? _filterQuality; // null = all, 'hires', 'cd', 'lossy'
@@ -549,6 +883,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
   void _ensureHistoryCaches(
     List<DownloadHistoryItem> items,
     List<LocalLibraryItem> localItems,
+    _HistoryStats historyStats,
   ) {
     final historyChanged = !identical(items, _historyItemsCache);
     final localChanged = !identical(localItems, _localLibraryItemsCache);
@@ -557,7 +892,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
 
     _historyItemsCache = items;
     _localLibraryItemsCache = localItems;
-    _historyStatsCache = _buildHistoryStats(items, localItems);
+    _historyStatsCache = historyStats;
     if (historyChanged) {
       _searchIndexCache.clear();
     }
@@ -1361,18 +1696,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     return filePath.substring(dotIndex + 1).toLowerCase();
   }
 
-  String? _localQualityLabel(LocalLibraryItem item) {
-    if (item.bitrate != null && item.bitrate! > 0) {
-      return '${item.bitrate}kbps';
-    }
-    if (item.bitDepth == null ||
-        item.bitDepth == 0 ||
-        item.sampleRate == null) {
-      return null;
-    }
-    return '${item.bitDepth}bit/${(item.sampleRate! / 1000).toStringAsFixed(1)}kHz';
-  }
-
   List<UnifiedLibraryItem> _applyAdvancedFilters(
     List<UnifiedLibraryItem> items,
   ) {
@@ -1443,179 +1766,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         );
     }
     return sorted;
-  }
-
-  bool _passesQualityFilter(String? quality) {
-    if (_filterQuality == null) return true;
-    if (quality == null) return _filterQuality == 'lossy';
-    final q = quality.toLowerCase();
-    switch (_filterQuality) {
-      case 'hires':
-        return q.startsWith('24');
-      case 'cd':
-        return q.startsWith('16');
-      case 'lossy':
-        return !q.startsWith('24') && !q.startsWith('16');
-      default:
-        return true;
-    }
-  }
-
-  bool _passesFormatFilter(String filePath) {
-    if (_filterFormat == null) return true;
-    return _fileExtLower(filePath) == _filterFormat;
-  }
-
-  List<_GroupedAlbum> _filterGroupedAlbums(
-    List<_GroupedAlbum> albums,
-    String searchQuery,
-  ) {
-    if (_activeFilterCount == 0 &&
-        searchQuery.isEmpty &&
-        _sortMode == 'latest') {
-      return albums;
-    }
-
-    // Source filter: if filtering local only, hide all download albums
-    if (_filterSource == 'local') return const [];
-
-    final result = <_GroupedAlbum>[];
-    for (final album in albums) {
-      if (searchQuery.isNotEmpty && !album.searchKey.contains(searchQuery)) {
-        continue;
-      }
-
-      // Filter tracks within the album by advanced filters
-      if (_filterQuality != null || _filterFormat != null) {
-        var hasMatchingTrack = false;
-        for (final track in album.tracks) {
-          if (!_passesQualityFilter(track.quality)) continue;
-          if (!_passesFormatFilter(track.filePath)) continue;
-          hasMatchingTrack = true;
-          break;
-        }
-
-        if (!hasMatchingTrack) continue;
-      }
-
-      result.add(album);
-    }
-
-    // Apply sorting to albums
-    switch (_sortMode) {
-      case 'oldest':
-        result.sort((a, b) => a.latestDownload.compareTo(b.latestDownload));
-      case 'a-z':
-        result.sort(
-          (a, b) =>
-              a.albumName.toLowerCase().compareTo(b.albumName.toLowerCase()),
-        );
-      case 'z-a':
-        result.sort(
-          (a, b) =>
-              b.albumName.toLowerCase().compareTo(a.albumName.toLowerCase()),
-        );
-      default: // 'latest' - already sorted
-        break;
-    }
-
-    return result;
-  }
-
-  List<_GroupedLocalAlbum> _filterGroupedLocalAlbums(
-    List<_GroupedLocalAlbum> albums,
-    String searchQuery,
-  ) {
-    if (_activeFilterCount == 0 &&
-        searchQuery.isEmpty &&
-        _sortMode == 'latest') {
-      return albums;
-    }
-
-    // Source filter: if filtering downloaded only, hide all local albums
-    if (_filterSource == 'downloaded') return const [];
-
-    final result = <_GroupedLocalAlbum>[];
-    for (final album in albums) {
-      if (searchQuery.isNotEmpty && !album.searchKey.contains(searchQuery)) {
-        continue;
-      }
-
-      // Filter tracks within the album by advanced filters
-      if (_filterQuality != null || _filterFormat != null) {
-        var hasMatchingTrack = false;
-        for (final track in album.tracks) {
-          if (!_passesQualityFilter(_localQualityLabel(track))) continue;
-          if (!_passesFormatFilter(track.filePath)) continue;
-          hasMatchingTrack = true;
-          break;
-        }
-
-        if (!hasMatchingTrack) continue;
-      }
-
-      result.add(album);
-    }
-
-    // Apply sorting to local albums
-    switch (_sortMode) {
-      case 'oldest':
-        result.sort((a, b) => a.latestScanned.compareTo(b.latestScanned));
-      case 'a-z':
-        result.sort(
-          (a, b) =>
-              a.albumName.toLowerCase().compareTo(b.albumName.toLowerCase()),
-        );
-      case 'z-a':
-        result.sort(
-          (a, b) =>
-              b.albumName.toLowerCase().compareTo(a.albumName.toLowerCase()),
-        );
-      default: // 'latest' - already sorted
-        break;
-    }
-
-    return result;
-  }
-
-  ({List<_GroupedAlbum> albums, List<_GroupedLocalAlbum> localAlbums})
-  _resolveFilteredGroupedAlbums(_HistoryStats historyStats) {
-    final cacheValid =
-        identical(_groupedAlbumFilterHistoryStatsCache, historyStats) &&
-        _groupedAlbumFilterSearchQuery == _searchQuery &&
-        _groupedAlbumFilterSource == _filterSource &&
-        _groupedAlbumFilterQuality == _filterQuality &&
-        _groupedAlbumFilterFormat == _filterFormat &&
-        _groupedAlbumFilterSortMode == _sortMode;
-
-    if (cacheValid) {
-      return (
-        albums: _filteredGroupedAlbumsCache,
-        localAlbums: _filteredGroupedLocalAlbumsCache,
-      );
-    }
-
-    final filteredGroupedAlbums = _filterGroupedAlbums(
-      historyStats.groupedAlbums,
-      _searchQuery,
-    );
-    final filteredGroupedLocalAlbums = _filterGroupedLocalAlbums(
-      historyStats.groupedLocalAlbums,
-      _searchQuery,
-    );
-
-    _groupedAlbumFilterHistoryStatsCache = historyStats;
-    _groupedAlbumFilterSearchQuery = _searchQuery;
-    _groupedAlbumFilterSource = _filterSource;
-    _groupedAlbumFilterQuality = _filterQuality;
-    _groupedAlbumFilterFormat = _filterFormat;
-    _groupedAlbumFilterSortMode = _sortMode;
-    _filteredGroupedAlbumsCache = filteredGroupedAlbums;
-    _filteredGroupedLocalAlbumsCache = filteredGroupedLocalAlbums;
-    return (
-      albums: filteredGroupedAlbums,
-      localAlbums: filteredGroupedLocalAlbums,
-    );
   }
 
   Set<String> _getAvailableFormats(List<UnifiedLibraryItem> items) {
@@ -2060,134 +2210,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     }
   }
 
-  _HistoryStats _buildHistoryStats(
-    List<DownloadHistoryItem> items, [
-    List<LocalLibraryItem> localItems = const [],
-  ]) {
-    final albumCounts = <String, int>{};
-    final albumMap = <String, List<DownloadHistoryItem>>{};
-    for (final item in items) {
-      final key =
-          '${item.albumName.toLowerCase()}|${(item.albumArtist ?? item.artistName).toLowerCase()}';
-      albumCounts[key] = (albumCounts[key] ?? 0) + 1;
-      albumMap.putIfAbsent(key, () => []).add(item);
-    }
-
-    int singleTracks = 0;
-    for (final item in items) {
-      final key =
-          '${item.albumName.toLowerCase()}|${(item.albumArtist ?? item.artistName).toLowerCase()}';
-      if ((albumCounts[key] ?? 0) <= 1) {
-        singleTracks++;
-      }
-    }
-
-    final groupedAlbums = <_GroupedAlbum>[];
-    albumMap.forEach((_, tracks) {
-      if (tracks.length <= 1) return;
-      tracks.sort((a, b) {
-        final aNum = a.trackNumber ?? 999;
-        final bNum = b.trackNumber ?? 999;
-        return aNum.compareTo(bNum);
-      });
-
-      groupedAlbums.add(
-        _GroupedAlbum(
-          albumName: tracks.first.albumName,
-          artistName: tracks.first.albumArtist ?? tracks.first.artistName,
-          coverUrl: tracks.first.coverUrl,
-          sampleFilePath: tracks.first.filePath,
-          tracks: tracks,
-          latestDownload: tracks
-              .map((t) => t.downloadedAt)
-              .reduce((a, b) => a.isAfter(b) ? a : b),
-        ),
-      );
-    });
-
-    groupedAlbums.sort((a, b) => b.latestDownload.compareTo(a.latestDownload));
-
-    int albumCount = 0;
-    for (final count in albumCounts.values) {
-      if (count > 1) albumCount++;
-    }
-
-    final downloadedPathKeys = <String>{};
-    for (final item in items) {
-      downloadedPathKeys.addAll(buildPathMatchKeys(item.filePath));
-    }
-
-    final dedupedLocalItems = localItems
-        .where((item) {
-          final localPathKeys = buildPathMatchKeys(item.filePath);
-          return !localPathKeys.any(downloadedPathKeys.contains);
-        })
-        .toList(growable: false);
-
-    // Calculate local library stats
-    final localAlbumCounts = <String, int>{};
-    final localAlbumMap = <String, List<LocalLibraryItem>>{};
-    for (final item in dedupedLocalItems) {
-      final key =
-          '${item.albumName.toLowerCase()}|${(item.albumArtist ?? item.artistName).toLowerCase()}';
-      localAlbumCounts[key] = (localAlbumCounts[key] ?? 0) + 1;
-      localAlbumMap.putIfAbsent(key, () => []).add(item);
-    }
-
-    int localAlbumCount = 0;
-    int localSingleTracks = 0;
-    for (final count in localAlbumCounts.values) {
-      if (count > 1) {
-        localAlbumCount++;
-      } else {
-        localSingleTracks++;
-      }
-    }
-
-    // Build grouped local albums
-    final groupedLocalAlbums = <_GroupedLocalAlbum>[];
-    localAlbumMap.forEach((_, tracks) {
-      if (tracks.length <= 1) return;
-      tracks.sort((a, b) {
-        final aNum = a.trackNumber ?? 999;
-        final bNum = b.trackNumber ?? 999;
-        return aNum.compareTo(bNum);
-      });
-
-      groupedLocalAlbums.add(
-        _GroupedLocalAlbum(
-          albumName: tracks.first.albumName,
-          artistName: tracks.first.albumArtist ?? tracks.first.artistName,
-          coverPath: tracks
-              .firstWhere(
-                (t) => t.coverPath != null && t.coverPath!.isNotEmpty,
-                orElse: () => tracks.first,
-              )
-              .coverPath,
-          tracks: tracks,
-          latestScanned: tracks
-              .map((t) => t.scannedAt)
-              .reduce((a, b) => a.isAfter(b) ? a : b),
-        ),
-      );
-    });
-
-    groupedLocalAlbums.sort(
-      (a, b) => b.latestScanned.compareTo(a.latestScanned),
-    );
-
-    return _HistoryStats(
-      albumCounts: albumCounts,
-      localAlbumCounts: localAlbumCounts,
-      groupedAlbums: groupedAlbums,
-      groupedLocalAlbums: groupedLocalAlbums,
-      albumCount: albumCount,
-      singleTracks: singleTracks,
-      localAlbumCount: localAlbumCount,
-      localSingleTracks: localSingleTracks,
-    );
-  }
-
   void _navigateToDownloadedAlbum(_GroupedAlbum album) {
     _searchFocusNode.unfocus();
     Navigator.push(
@@ -2541,8 +2563,19 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         ? ref.watch(localLibraryProvider.select((s) => s.items))
         : const <LocalLibraryItem>[];
     final collectionState = ref.watch(libraryCollectionsProvider);
-
-    _ensureHistoryCaches(allHistoryItems, localLibraryItems);
+    final historyStats = ref.watch(_queueHistoryStatsProvider);
+    final filteredGrouped = ref.watch(
+      _queueFilteredAlbumsProvider(
+        _QueueGroupedAlbumFilterRequest(
+          searchQuery: _searchQuery,
+          filterSource: _filterSource,
+          filterQuality: _filterQuality,
+          filterFormat: _filterFormat,
+          sortMode: _sortMode,
+        ),
+      ),
+    );
+    _ensureHistoryCaches(allHistoryItems, localLibraryItems, historyStats);
     final historyViewMode = ref.watch(
       settingsProvider.select((s) => s.historyViewMode),
     );
@@ -2551,11 +2584,6 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     );
     final colorScheme = Theme.of(context).colorScheme;
     final topPadding = normalizedHeaderTopPadding(context);
-
-    final historyStats =
-        _historyStatsCache ??
-        _buildHistoryStats(allHistoryItems, localLibraryItems);
-    final filteredGrouped = _resolveFilteredGroupedAlbums(historyStats);
     final filteredGroupedAlbums = filteredGrouped.albums;
     final filteredGroupedLocalAlbums = filteredGrouped.localAlbums;
     final albumCount = historyStats.totalAlbumCount;

@@ -1090,6 +1090,17 @@ class PlatformBridge {
     return jsonDecode(result as String) as Map<String, dynamic>;
   }
 
+  static Future<Map<String, dynamic>> scanLibraryFolderIncrementalFromSnapshot(
+    String folderPath,
+    String snapshotPath,
+  ) async {
+    final result = await _channel.invokeMethod(
+      'scanLibraryFolderIncrementalFromSnapshot',
+      {'folder_path': folderPath, 'snapshot_path': snapshotPath},
+    );
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
   static Future<List<Map<String, dynamic>>> scanSafTree(String treeUri) async {
     _log.i('scanSafTree: $treeUri');
     final result = await _channel.invokeMethod('scanSafTree', {
@@ -1112,6 +1123,17 @@ class PlatformBridge {
       'tree_uri': treeUri,
       'existing_files': jsonEncode(existingFiles),
     });
+    return jsonDecode(result as String) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> scanSafTreeIncrementalFromSnapshot(
+    String treeUri,
+    String snapshotPath,
+  ) async {
+    final result = await _channel.invokeMethod(
+      'scanSafTreeIncrementalFromSnapshot',
+      {'tree_uri': treeUri, 'snapshot_path': snapshotPath},
+    );
     return jsonDecode(result as String) as Map<String, dynamic>;
   }
 

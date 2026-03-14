@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -91,16 +92,18 @@ class _EagerInitialization extends ConsumerStatefulWidget {
 
 class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
   ProviderSubscription<bool>? _localLibraryEnabledSub;
-  bool _localLibraryPreloaded = false;
+  Timer? _downloadHistoryWarmupTimer;
+  Timer? _libraryCollectionsWarmupTimer;
+  Timer? _localLibraryWarmupTimer;
+  bool _localLibraryWarmupScheduled = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeAppServices();
-    _initializeExtensions();
-    ref.read(downloadHistoryProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      _initializeAppServices();
+      _initializeExtensions();
       _initializeDeferredProviders();
     });
   }
@@ -108,12 +111,23 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
   @override
   void dispose() {
     _localLibraryEnabledSub?.close();
+    _downloadHistoryWarmupTimer?.cancel();
+    _libraryCollectionsWarmupTimer?.cancel();
+    _localLibraryWarmupTimer?.cancel();
     super.dispose();
   }
 
   void _initializeDeferredProviders() {
-    ref.read(libraryCollectionsProvider);
-    _maybePreloadLocalLibrary(
+    _downloadHistoryWarmupTimer = _scheduleProviderWarmup(
+      const Duration(milliseconds: 400),
+      () => ref.read(downloadHistoryProvider),
+    );
+    _libraryCollectionsWarmupTimer = _scheduleProviderWarmup(
+      const Duration(milliseconds: 900),
+      () => ref.read(libraryCollectionsProvider),
+    );
+
+    _maybeScheduleLocalLibraryWarmup(
       ref.read(
         settingsProvider.select((settings) => settings.localLibraryEnabled),
       ),
@@ -123,18 +137,26 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization> {
       settingsProvider.select((settings) => settings.localLibraryEnabled),
       (previous, next) {
         if (next == true) {
-          _maybePreloadLocalLibrary(true);
+          _maybeScheduleLocalLibraryWarmup(true);
         }
       },
     );
   }
 
-  void _maybePreloadLocalLibrary(bool enabled) {
-    if (!enabled || _localLibraryPreloaded) return;
-    _localLibraryPreloaded = true;
-    ref.read(localLibraryProvider);
-    _localLibraryEnabledSub?.close();
-    _localLibraryEnabledSub = null;
+  Timer _scheduleProviderWarmup(Duration delay, VoidCallback action) {
+    return Timer(delay, () {
+      if (!mounted) return;
+      action();
+    });
+  }
+
+  void _maybeScheduleLocalLibraryWarmup(bool enabled) {
+    if (!enabled || _localLibraryWarmupScheduled) return;
+    _localLibraryWarmupScheduled = true;
+    _localLibraryWarmupTimer = _scheduleProviderWarmup(
+      const Duration(milliseconds: 1600),
+      () => ref.read(localLibraryProvider),
+    );
   }
 
   Future<void> _initializeAppServices() async {

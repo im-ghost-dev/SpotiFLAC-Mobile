@@ -929,11 +929,12 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
   StreamSubscription<Map<String, dynamic>>? _progressStreamSub;
   int _downloadCount = 0;
   static const _cleanupInterval = 50;
-  static const _progressPollingInterval = Duration(milliseconds: 800);
+  static const _progressPollingInterval = Duration(milliseconds: 1200);
   static const _idleProgressPollEveryTicks = 3;
   static const _queueSchedulingInterval = Duration(milliseconds: 250);
   static const _queuePersistDebounceDuration = Duration(milliseconds: 350);
   static const _bytesUiStep = 104857; // ~0.1 MiB, matches one-decimal MB UI.
+  static const _serviceProgressStepPercent = 2;
   final NotificationService _notificationService = NotificationService();
   final AppStateDatabase _appStateDb = AppStateDatabase.instance;
   int _totalQueuedAtStart = 0;
@@ -1470,12 +1471,17 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         .round()
         .clamp(0, 100)
         .toInt();
+    final progressBucket = progressPercent == 100
+        ? 100
+        : ((progressPercent ~/ _serviceProgressStepPercent) *
+                  _serviceProgressStepPercent)
+              .clamp(0, 100);
 
     final didContentChange =
         trackName != _lastServiceTrackName ||
         artistName != _lastServiceArtistName ||
         queueCount != _lastServiceQueueCount ||
-        progressPercent != _lastServicePercent;
+        progressBucket != _lastServicePercent;
     final allowHeartbeat =
         now.difference(_lastServiceUpdateAt) >= const Duration(seconds: 5);
 
@@ -1485,7 +1491,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
 
     _lastServiceTrackName = trackName;
     _lastServiceArtistName = artistName;
-    _lastServicePercent = progressPercent;
+    _lastServicePercent = progressBucket;
     _lastServiceQueueCount = queueCount;
     _lastServiceUpdateAt = now;
 

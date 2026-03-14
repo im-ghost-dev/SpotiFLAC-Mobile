@@ -3194,6 +3194,10 @@ func ScanLibraryFolderIncrementalJSON(folderPath, existingFilesJSON string) (str
 	return ScanLibraryFolderIncremental(folderPath, existingFilesJSON)
 }
 
+func ScanLibraryFolderIncrementalFromSnapshotJSON(folderPath, snapshotPath string) (string, error) {
+	return ScanLibraryFolderIncrementalFromSnapshot(folderPath, snapshotPath)
+}
+
 func GetLibraryScanProgressJSON() string {
 	return GetLibraryScanProgress()
 }

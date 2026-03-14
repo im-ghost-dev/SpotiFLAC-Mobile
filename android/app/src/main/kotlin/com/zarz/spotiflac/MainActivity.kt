@@ -38,7 +38,7 @@ class MainActivity: FlutterFragmentActivity() {
         "com.zarz.spotiflac/download_progress_stream"
     private val LIBRARY_SCAN_PROGRESS_STREAM_CHANNEL =
         "com.zarz.spotiflac/library_scan_progress_stream"
-    private val STREAM_POLLING_INTERVAL_MS = 800L
+    private val STREAM_POLLING_INTERVAL_MS = 1200L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var pendingSafTreeResult: MethodChannel.Result? = null
     private val safScanLock = Any()
@@ -467,6 +467,32 @@ class MainActivity: FlutterFragmentActivity() {
         libraryScanProgressStreamJob = null
         libraryScanProgressEventSink = null
         lastLibraryScanProgressPayload = null
+    }
+
+    private fun loadExistingFilesJsonFromSnapshot(snapshotPath: String): String {
+        if (snapshotPath.isBlank()) {
+            return "{}"
+        }
+
+        val snapshotFile = File(snapshotPath)
+        if (!snapshotFile.exists()) {
+            return "{}"
+        }
+
+        val result = JSONObject()
+        snapshotFile.forEachLine { line ->
+            if (line.isBlank()) return@forEachLine
+            val separatorIndex = line.indexOf('\t')
+            if (separatorIndex <= 0 || separatorIndex >= line.length - 1) {
+                return@forEachLine
+            }
+            val modTime = line.substring(0, separatorIndex).toLongOrNull() ?: 0L
+            val filePath = line.substring(separatorIndex + 1)
+            if (filePath.isNotEmpty()) {
+                result.put(filePath, modTime)
+            }
+        }
+        return result.toString()
     }
 
     private fun resolveSafFile(treeUriStr: String, relativeDir: String, fileName: String): String {
@@ -3186,6 +3212,18 @@ class MainActivity: FlutterFragmentActivity() {
                             }
                             result.success(response)
                         }
+                        "scanLibraryFolderIncrementalFromSnapshot" -> {
+                            val folderPath = call.argument<String>("folder_path") ?: ""
+                            val snapshotPath = call.argument<String>("snapshot_path") ?: ""
+                            val response = withContext(Dispatchers.IO) {
+                                safScanActive = false
+                                Gobackend.scanLibraryFolderIncrementalFromSnapshotJSON(
+                                    folderPath,
+                                    snapshotPath,
+                                )
+                            }
+                            result.success(response)
+                        }
                         "scanSafTree" -> {
                             val treeUri = call.argument<String>("tree_uri") ?: ""
                             val response = withContext(Dispatchers.IO) {
@@ -3198,6 +3236,16 @@ class MainActivity: FlutterFragmentActivity() {
                             val existingFiles = call.argument<String>("existing_files") ?: "{}"
                             val response = withContext(Dispatchers.IO) {
                                 scanSafTreeIncremental(treeUri, existingFiles)
+                            }
+                            result.success(response)
+                        }
+                        "scanSafTreeIncrementalFromSnapshot" -> {
+                            val treeUri = call.argument<String>("tree_uri") ?: ""
+                            val snapshotPath = call.argument<String>("snapshot_path") ?: ""
+                            val response = withContext(Dispatchers.IO) {
+                                val existingFilesJson =
+                                    loadExistingFilesJsonFromSnapshot(snapshotPath)
+                                scanSafTreeIncremental(treeUri, existingFilesJson)
                             }
                             result.success(response)
                         }

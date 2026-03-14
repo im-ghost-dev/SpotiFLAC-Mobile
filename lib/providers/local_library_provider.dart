@@ -120,7 +120,7 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
   final LibraryDatabase _db = LibraryDatabase.instance;
   final HistoryDatabase _historyDb = HistoryDatabase.instance;
   final NotificationService _notificationService = NotificationService();
-  static const _progressPollingInterval = Duration(milliseconds: 800);
+  static const _progressPollingInterval = Duration(milliseconds: 1200);
   Timer? _progressTimer;
   Timer? _progressStreamBootstrapTimer;
   StreamSubscription<Map<String, dynamic>>? _progressStreamSub;
@@ -378,18 +378,41 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
           _log.i('Backfilled ${backfilledModTimes.length} legacy mod times');
         }
 
-        // Use appropriate incremental scan method based on SAF or not
-        final Map<String, dynamic> result;
-        if (isSaf) {
-          result = await PlatformBridge.scanSafTreeIncremental(
-            effectiveFolderPath,
-            existingFiles,
-          );
-        } else {
-          result = await PlatformBridge.scanLibraryFolderIncremental(
-            effectiveFolderPath,
-            existingFiles,
-          );
+        final useSnapshotBridge =
+            Platform.isAndroid && existingFiles.isNotEmpty;
+        final snapshotPath = useSnapshotBridge
+            ? await _db.writeFileModTimesSnapshot()
+            : null;
+
+        Map<String, dynamic> result;
+        try {
+          if (isSaf) {
+            result = useSnapshotBridge && snapshotPath != null
+                ? await PlatformBridge.scanSafTreeIncrementalFromSnapshot(
+                    effectiveFolderPath,
+                    snapshotPath,
+                  )
+                : await PlatformBridge.scanSafTreeIncremental(
+                    effectiveFolderPath,
+                    existingFiles,
+                  );
+          } else {
+            result = useSnapshotBridge && snapshotPath != null
+                ? await PlatformBridge.scanLibraryFolderIncrementalFromSnapshot(
+                    effectiveFolderPath,
+                    snapshotPath,
+                  )
+                : await PlatformBridge.scanLibraryFolderIncremental(
+                    effectiveFolderPath,
+                    existingFiles,
+                  );
+          }
+        } finally {
+          if (snapshotPath != null) {
+            try {
+              await File(snapshotPath).delete();
+            } catch (_) {}
+          }
         }
 
         if (_scanCancelRequested) {

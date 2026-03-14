@@ -33,7 +33,7 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _currentIndex = 0;
-  late PageController _pageController;
+  late final PageController _pageController;
   bool _hasCheckedUpdate = false;
   StreamSubscription<String>? _shareSubscription;
   DateTime? _lastBackPress;
@@ -113,17 +113,18 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (trackState.error != null && mounted) {
       final l10n = context.l10n;
       final errorMsg = trackState.error!;
-      final isRateLimit = errorMsg.contains('429') ||
+      final isRateLimit =
+          errorMsg.contains('429') ||
           errorMsg.toLowerCase().contains('rate limit') ||
           errorMsg.toLowerCase().contains('too many requests');
       final displayMessage = errorMsg == 'url_not_recognized'
           ? l10n.errorUrlNotRecognizedMessage
           : isRateLimit
-              ? l10n.errorRateLimitedMessage
-              : l10n.errorUrlFetchFailed;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(displayMessage)),
-      );
+          ? l10n.errorRateLimitedMessage
+          : l10n.errorUrlFetchFailed;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(displayMessage)));
     }
   }
 
@@ -212,9 +213,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                       );
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(context.l10n.safMigrationSuccess),
-                      ),
+                      SnackBar(content: Text(context.l10n.safMigrationSuccess)),
                     );
                   }
                 }
@@ -253,6 +252,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
 
     if (_currentIndex != index) {
+      final shouldResetHome = index == 0;
       HapticFeedback.selectionClick();
       setState(() => _currentIndex = index);
       final showStore = ref.read(
@@ -262,6 +262,10 @@ class _MainShellState extends ConsumerState<MainShell> {
         currentTabIndex: _currentIndex,
         showStoreTab: showStore,
       );
+      FocusManager.instance.primaryFocus?.unfocus();
+      if (shouldResetHome) {
+        _resetHomeToMain();
+      }
       _pageController.animateToPage(
         index,
         duration: const Duration(milliseconds: 250),
@@ -501,11 +505,15 @@ class _MainShellState extends ConsumerState<MainShell> {
         return true;
       },
       child: Scaffold(
-        body: PageView(
+        body: PageView.builder(
           controller: _pageController,
+          itemCount: tabs.length,
           onPageChanged: _onPageChanged,
           physics: const NeverScrollableScrollPhysics(),
-          children: tabs,
+          itemBuilder: (context, index) => _KeepAliveTabPage(
+            key: ValueKey('page-$index'),
+            child: tabs[index],
+          ),
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _currentIndex.clamp(0, maxIndex),
@@ -563,6 +571,27 @@ class _LibraryTabRoot extends ConsumerWidget {
       parentPageIndex: 1,
       nextPageIndex: showStore ? 2 : 3,
     );
+  }
+}
+
+class _KeepAliveTabPage extends StatefulWidget {
+  final Widget child;
+
+  const _KeepAliveTabPage({super.key, required this.child});
+
+  @override
+  State<_KeepAliveTabPage> createState() => _KeepAliveTabPageState();
+}
+
+class _KeepAliveTabPageState extends State<_KeepAliveTabPage>
+    with AutomaticKeepAliveClientMixin<_KeepAliveTabPage> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
