@@ -1596,7 +1596,6 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     });
 
     try {
-      // Convert duration from seconds to milliseconds
       final durationMs = (duration ?? 0) * 1000;
 
       // First, check if lyrics are embedded in the file
@@ -1617,7 +1616,6 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
         final embeddedSource = embeddedResult['source']?.toString() ?? '';
 
         if (embeddedLyrics.isNotEmpty) {
-          // Lyrics found in file
           if (mounted) {
             final cleanLyrics = _cleanLrcForDisplay(embeddedLyrics);
             setState(() {
@@ -1650,7 +1648,6 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
           lrcText == '[instrumental:true]';
 
       if (mounted) {
-        // Check for instrumental marker
         if (instrumental) {
           setState(() {
             _isInstrumental = true;

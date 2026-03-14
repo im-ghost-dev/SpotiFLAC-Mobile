@@ -3064,6 +3064,25 @@ class MainActivity: FlutterFragmentActivity() {
                             }
                             result.success(null)
                         }
+                        "setStoreRegistryUrl" -> {
+                            val registryUrl = call.argument<String>("registry_url") ?: ""
+                            withContext(Dispatchers.IO) {
+                                Gobackend.setStoreRegistryURLJSON(registryUrl)
+                            }
+                            result.success(null)
+                        }
+                        "getStoreRegistryUrl" -> {
+                            val response = withContext(Dispatchers.IO) {
+                                Gobackend.getStoreRegistryURLJSON()
+                            }
+                            result.success(response)
+                        }
+                        "clearStoreRegistryUrl" -> {
+                            withContext(Dispatchers.IO) {
+                                Gobackend.clearStoreRegistryURLJSON()
+                            }
+                            result.success(null)
+                        }
                         "getStoreExtensions" -> {
                             val forceRefresh = call.argument<Boolean>("force_refresh") ?: false
                             val response = withContext(Dispatchers.IO) {

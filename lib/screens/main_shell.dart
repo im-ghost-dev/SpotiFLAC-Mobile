@@ -158,12 +158,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     if (settings.storageMode == 'saf') return;
     if (settings.downloadDirectory.isEmpty) return;
 
-    // Check Android version
     final deviceInfo = DeviceInfoPlugin();
     final androidInfo = await deviceInfo.androidInfo;
     if (androidInfo.version.sdkInt < 29) return;
 
-    // Only show once
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_safMigrationShownKey) == true) return;
     await prefs.setBool(_safMigrationShownKey, true);

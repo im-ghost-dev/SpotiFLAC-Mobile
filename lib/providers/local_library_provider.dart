@@ -399,7 +399,6 @@ class LocalLibraryNotifier extends Notifier<LocalLibraryState> {
           return;
         }
 
-        // Parse incremental scan result
         // SAF returns 'files' and 'removedUris', non-SAF returns 'scanned' and 'deletedPaths'
         final scannedList =
             (result['files'] as List<dynamic>?) ??

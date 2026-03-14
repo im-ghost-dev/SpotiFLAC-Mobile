@@ -791,6 +791,23 @@ import Gobackend  // Import Go framework
             if let error = error { throw error }
             return nil
             
+        case "setStoreRegistryUrl":
+            let args = call.arguments as! [String: Any]
+            let registryUrl = args["registry_url"] as? String ?? ""
+            GobackendSetStoreRegistryURLJSON(registryUrl, &error)
+            if let error = error { throw error }
+            return nil
+            
+        case "getStoreRegistryUrl":
+            let response = GobackendGetStoreRegistryURLJSON(&error)
+            if let error = error { throw error }
+            return response
+            
+        case "clearStoreRegistryUrl":
+            GobackendClearStoreRegistryURLJSON(&error)
+            if let error = error { throw error }
+            return nil
+            
         case "getStoreExtensions":
             let args = call.arguments as! [String: Any]
             let forceRefresh = args["force_refresh"] as? Bool ?? false

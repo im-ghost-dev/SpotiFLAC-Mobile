@@ -2930,6 +2930,45 @@ func InitExtensionStoreJSON(cacheDir string) error {
 	return nil
 }
 
+func SetStoreRegistryURLJSON(registryURL string) error {
+	store := GetExtensionStore()
+	if store == nil {
+		return fmt.Errorf("extension store not initialized")
+	}
+
+	resolved, err := ResolveRegistryURL(registryURL)
+	if err != nil {
+		return err
+	}
+
+	if err := requireHTTPSURL(resolved, "registry"); err != nil {
+		return err
+	}
+
+	store.SetRegistryURL(resolved)
+	return nil
+}
+
+func ClearStoreRegistryURLJSON() error {
+	store := GetExtensionStore()
+	if store == nil {
+		return fmt.Errorf("extension store not initialized")
+	}
+
+	store.SetRegistryURL("")
+	store.ClearCache()
+	return nil
+}
+
+func GetStoreRegistryURLJSON() (string, error) {
+	store := GetExtensionStore()
+	if store == nil {
+		return "", fmt.Errorf("extension store not initialized")
+	}
+
+	return store.GetRegistryURL(), nil
+}
+
 func GetStoreExtensionsJSON(forceRefresh bool) (string, error) {
 	store := GetExtensionStore()
 	if store == nil {

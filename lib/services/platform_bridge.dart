@@ -1191,6 +1191,22 @@ class PlatformBridge {
     await _channel.invokeMethod('initExtensionStore', {'cache_dir': cacheDir});
   }
 
+  static Future<void> setStoreRegistryUrl(String registryUrl) async {
+    _log.d('setStoreRegistryUrl: $registryUrl');
+    await _channel.invokeMethod('setStoreRegistryUrl', {'registry_url': registryUrl});
+  }
+
+  static Future<String> getStoreRegistryUrl() async {
+    _log.d('getStoreRegistryUrl');
+    final result = await _channel.invokeMethod('getStoreRegistryUrl');
+    return result as String? ?? '';
+  }
+
+  static Future<void> clearStoreRegistryUrl() async {
+    _log.d('clearStoreRegistryUrl');
+    await _channel.invokeMethod('clearStoreRegistryUrl');
+  }
+
   static Future<List<Map<String, dynamic>>> getStoreExtensions({
     bool forceRefresh = false,
   }) async {

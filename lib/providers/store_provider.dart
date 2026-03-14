@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:spotiflac_android/constants/app_info.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/logger.dart';
@@ -6,6 +7,7 @@ import 'package:spotiflac_android/providers/extension_provider.dart';
 
 final _log = AppLogger('StoreProvider');
 final RegExp _leadingVersionPrefix = RegExp(r'^v');
+const _registryUrlPrefKey = 'store_registry_url';
 
 int compareVersions(String v1, String v2) {
   final parts1 = v1.replaceAll(_leadingVersionPrefix, '').split('.');
@@ -125,6 +127,7 @@ class StoreState {
   final String? downloadingId;
   final String? error;
   final bool isInitialized;
+  final String registryUrl;
 
   const StoreState({
     this.extensions = const [],
@@ -135,7 +138,11 @@ class StoreState {
     this.downloadingId,
     this.error,
     this.isInitialized = false,
+    this.registryUrl = '',
   });
+
+  /// Whether a registry URL has been configured by the user.
+  bool get hasRegistryUrl => registryUrl.isNotEmpty;
 
   StoreState copyWith({
     List<StoreExtension>? extensions,
@@ -149,6 +156,7 @@ class StoreState {
     String? error,
     bool clearError = false,
     bool? isInitialized,
+    String? registryUrl,
   }) {
     return StoreState(
       extensions: extensions ?? this.extensions,
@@ -159,6 +167,7 @@ class StoreState {
       downloadingId: clearDownloadingId ? null : (downloadingId ?? this.downloadingId),
       error: clearError ? null : (error ?? this.error),
       isInitialized: isInitialized ?? this.isInitialized,
+      registryUrl: registryUrl ?? this.registryUrl,
     );
   }
 
@@ -201,12 +210,81 @@ class StoreNotifier extends Notifier<StoreState> {
 
     try {
       await PlatformBridge.initExtensionStore(cacheDir);
-      await refresh();
+
+      // Load saved registry URL from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final savedUrl = prefs.getString(_registryUrlPrefKey) ?? '';
+
+      if (savedUrl.isNotEmpty) {
+        await PlatformBridge.setStoreRegistryUrl(savedUrl);
+        state = state.copyWith(registryUrl: savedUrl);
+        await refresh();
+      }
+
       state = state.copyWith(isInitialized: true, isLoading: false);
-      _log.i('Extension store initialized');
+      _log.i('Extension store initialized (registryUrl: ${savedUrl.isEmpty ? "not set" : savedUrl})');
     } catch (e) {
       _log.e('Failed to initialize store: $e');
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Sets the registry URL, saves it, and refreshes the store.
+  /// The Go backend handles URL normalisation (GitHub repo → raw URL, branch detection).
+  Future<void> setRegistryUrl(String url) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      state = state.copyWith(error: 'Please enter a valid URL');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, clearError: true);
+
+    try {
+      // Go backend resolves GitHub URLs (detects default branch) and validates HTTPS.
+      await PlatformBridge.setStoreRegistryUrl(trimmed);
+
+      // Read back the resolved URL (may differ from input after normalisation).
+      final resolvedUrl = await PlatformBridge.getStoreRegistryUrl();
+
+      // Persist to SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_registryUrlPrefKey, resolvedUrl);
+
+      state = state.copyWith(
+        registryUrl: resolvedUrl,
+        extensions: const [], // Clear old extensions
+      );
+
+      _log.i('Registry URL set to: $resolvedUrl');
+      await refresh(forceRefresh: true);
+    } catch (e) {
+      _log.e('Failed to set registry URL: $e');
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Removes the saved registry URL and fully detaches the repo from backend.
+  Future<void> removeRegistryUrl() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_registryUrlPrefKey);
+
+      // Reset the URL in Go backend memory AND clear its cache
+      await PlatformBridge.clearStoreRegistryUrl();
+
+      state = state.copyWith(
+        registryUrl: '',
+        extensions: const [],
+        clearCategory: true,
+        searchQuery: '',
+        clearError: true,
+      );
+
+      _log.i('Registry URL removed');
+    } catch (e) {
+      _log.e('Failed to remove registry URL: $e');
+      state = state.copyWith(error: e.toString());
     }
   }
 

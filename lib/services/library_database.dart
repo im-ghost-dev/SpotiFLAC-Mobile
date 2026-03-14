@@ -242,8 +242,6 @@ class LibraryDatabase {
     };
   }
 
-  // CRUD Operations
-
   Future<void> upsert(Map<String, dynamic> json) async {
     final db = await database;
     await db.insert(
