@@ -2129,8 +2129,8 @@ func resolveQobuzTrackForRequest(req DownloadRequest, downloader *QobuzDownloade
 		}
 	}
 
-	// Strategy 3: Try to get QobuzID from SongLink if we have SpotifyID
-	if track == nil && req.SpotifyID != "" && req.QobuzID == "" {
+	// Strategy 3: Try to get QobuzID from SongLink if we have SpotifyID but no ISRC
+	if track == nil && req.SpotifyID != "" && req.QobuzID == "" && req.ISRC == "" {
 		GoLog("[%s] Trying to get Qobuz ID from SongLink for Spotify ID: %s\n", logPrefix, req.SpotifyID)
 		songLinkClient := NewSongLinkClient()
 		availability, slErr := songLinkCheckTrackAvailabilityFunc(songLinkClient, req.SpotifyID, req.ISRC)
