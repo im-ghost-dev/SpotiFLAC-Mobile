@@ -122,7 +122,7 @@ class DownloadHistoryItem {
         artistName: json['artistName'] as String,
         albumName: json['albumName'] as String,
         albumArtist: normalizeOptionalString(json['albumArtist'] as String?),
-        coverUrl: json['coverUrl'] as String?,
+        coverUrl: normalizeCoverReference(json['coverUrl']?.toString()),
         filePath: json['filePath'] as String,
         storageMode: json['storageMode'] as String?,
         downloadTreeUri: json['downloadTreeUri'] as String?,
@@ -176,7 +176,7 @@ class DownloadHistoryItem {
       artistName: artistName ?? this.artistName,
       albumName: albumName ?? this.albumName,
       albumArtist: albumArtist ?? this.albumArtist,
-      coverUrl: coverUrl ?? this.coverUrl,
+      coverUrl: normalizeCoverReference(coverUrl ?? this.coverUrl),
       filePath: filePath ?? this.filePath,
       storageMode: storageMode ?? this.storageMode,
       downloadTreeUri: downloadTreeUri ?? this.downloadTreeUri,
@@ -2534,8 +2534,8 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     final backendIsrc = normalizeOptionalString(
       backendResult['isrc'] as String?,
     );
-    final backendCoverUrl = normalizeOptionalString(
-      backendResult['cover_url'] as String?,
+    final backendCoverUrl = normalizeCoverReference(
+      backendResult['cover_url']?.toString(),
     );
     final backendAlbumArtist = normalizeOptionalString(
       backendResult['album_artist'] as String?,
@@ -2591,7 +2591,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     }
 
     String? coverPath;
-    var coverUrl = track.coverUrl;
+    var coverUrl = normalizeRemoteHttpUrl(track.coverUrl);
     if (coverUrl != null && coverUrl.isNotEmpty) {
       try {
         if (settings.maxQualityCover) {
@@ -2777,7 +2777,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     }
 
     String? coverPath;
-    var coverUrl = track.coverUrl;
+    var coverUrl = normalizeRemoteHttpUrl(track.coverUrl);
     if (coverUrl != null && coverUrl.isNotEmpty) {
       try {
         if (settings.maxQualityCover) {
@@ -2945,7 +2945,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
     }
 
     String? coverPath;
-    var coverUrl = track.coverUrl;
+    var coverUrl = normalizeRemoteHttpUrl(track.coverUrl);
     if (coverUrl != null && coverUrl.isNotEmpty) {
       try {
         if (settings.maxQualityCover) {
@@ -3751,7 +3751,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
                 albumArtist: trackToDownload.albumArtist,
                 artistId: trackToDownload.artistId,
                 albumId: trackToDownload.albumId,
-                coverUrl: trackToDownload.coverUrl,
+                coverUrl: normalizeCoverReference(trackToDownload.coverUrl),
                 duration: trackToDownload.duration,
                 isrc: (deezerIsrc != null && _isValidISRC(deezerIsrc))
                     ? deezerIsrc
@@ -4041,6 +4041,14 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
             item.service.toLowerCase();
         final decryptionKey =
             (result['decryption_key'] as String?)?.trim() ?? '';
+        trackToDownload = _buildTrackForMetadataEmbedding(
+          trackToDownload,
+          result,
+          resolvedAlbumArtist,
+        );
+        _log.d(
+          'Track coverUrl after download result: ${trackToDownload.coverUrl}',
+        );
 
         if (!wasExisting && decryptionKey.isNotEmpty && filePath != null) {
           _log.i('Encrypted stream detected, decrypting via FFmpeg...');
@@ -4959,7 +4967,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
                       ? backendAlbum
                       : trackToDownload.albumName,
                   albumArtist: historyAlbumArtist,
-                  coverUrl: trackToDownload.coverUrl,
+                  coverUrl: normalizeCoverReference(trackToDownload.coverUrl),
                   filePath: filePath,
                   storageMode: effectiveSafMode ? 'saf' : 'app',
                   downloadTreeUri: effectiveSafMode

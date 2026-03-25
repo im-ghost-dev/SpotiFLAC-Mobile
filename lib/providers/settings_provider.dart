@@ -424,6 +424,15 @@ class SettingsNotifier extends Notifier<AppSettings> {
     _saveSettings();
   }
 
+  void setHomeFeedProvider(String? provider) {
+    if (provider == null || provider.isEmpty) {
+      state = state.copyWith(clearHomeFeedProvider: true);
+    } else {
+      state = state.copyWith(homeFeedProvider: provider);
+    }
+    _saveSettings();
+  }
+
   void setEnableLogging(bool enabled) {
     state = state.copyWith(enableLogging: enabled);
     _saveSettings();

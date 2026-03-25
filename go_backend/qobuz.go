@@ -2067,6 +2067,7 @@ type QobuzDownloadResult struct {
 	TrackNumber int
 	DiscNumber  int
 	ISRC        string
+	CoverURL    string
 	LyricsLRC   string
 }
 
@@ -2260,7 +2261,10 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 	parallelDone := make(chan struct{})
 	go func() {
 		defer close(parallelDone)
-		coverURL := req.CoverURL
+		coverURL := strings.TrimSpace(req.CoverURL)
+		if coverURL == "" {
+			coverURL = strings.TrimSpace(qobuzTrackAlbumImage(track))
+		}
 		embedLyrics := req.EmbedLyrics
 		if !req.EmbedMetadata {
 			coverURL = ""
@@ -2393,6 +2397,7 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		TrackNumber: resultTrackNumber,
 		DiscNumber:  resultDiscNumber,
 		ISRC:        track.ISRC,
+		CoverURL:    strings.TrimSpace(qobuzTrackAlbumImage(track)),
 		LyricsLRC:   lyricsLRC,
 	}, nil
 }

@@ -39,6 +39,7 @@ AppSettings _$AppSettingsFromJson(Map<String, dynamic> json) => AppSettings(
   enableLogging: json['enableLogging'] as bool? ?? false,
   useExtensionProviders: json['useExtensionProviders'] as bool? ?? true,
   searchProvider: json['searchProvider'] as String?,
+  homeFeedProvider: json['homeFeedProvider'] as String?,
   separateSingles: json['separateSingles'] as bool? ?? false,
   albumFolderStructure:
       json['albumFolderStructure'] as String? ?? 'artist_album',
@@ -117,6 +118,7 @@ Map<String, dynamic> _$AppSettingsToJson(
   'enableLogging': instance.enableLogging,
   'useExtensionProviders': instance.useExtensionProviders,
   'searchProvider': instance.searchProvider,
+  'homeFeedProvider': instance.homeFeedProvider,
   'separateSingles': instance.separateSingles,
   'albumFolderStructure': instance.albumFolderStructure,
   'showExtensionStore': instance.showExtensionStore,

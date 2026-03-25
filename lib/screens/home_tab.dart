@@ -23,6 +23,7 @@ import 'package:spotiflac_android/services/downloaded_embedded_cover_resolver.da
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/app_bar_layout.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/utils/string_utils.dart';
 import 'package:spotiflac_android/screens/playlist_screen.dart';
 import 'package:spotiflac_android/screens/downloaded_album_screen.dart';
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
@@ -4306,7 +4307,7 @@ class _ExtensionArtistScreenState extends ConsumerState<ExtensionArtistScreen> {
       artists: (data['artists'] ?? '').toString(),
       releaseDate: (data['release_date'] ?? '').toString(),
       totalTracks: data['total_tracks'] as int? ?? 0,
-      coverUrl: data['cover_url']?.toString(),
+      coverUrl: normalizeCoverReference(data['cover_url']?.toString()),
       albumType: (data['album_type'] ?? 'album').toString(),
       providerId: (data['provider_id'] ?? widget.extensionId).toString(),
     );
@@ -4331,7 +4332,9 @@ class _ExtensionArtistScreenState extends ConsumerState<ExtensionArtistScreen> {
           (data['artist_id'] ?? data['artistId'])?.toString() ??
           widget.artistId,
       albumId: data['album_id']?.toString(),
-      coverUrl: (data['cover_url'] ?? data['images'])?.toString(),
+      coverUrl: normalizeCoverReference(
+        (data['cover_url'] ?? data['images'])?.toString(),
+      ),
       isrc: data['isrc']?.toString(),
       duration: (durationMs / 1000).round(),
       trackNumber: data['track_number'] as int?,

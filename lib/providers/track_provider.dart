@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/logger.dart';
+import 'package:spotiflac_android/utils/string_utils.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
 
@@ -286,7 +287,9 @@ class TrackNotifier extends Notifier<TrackState> {
               playlistName: type == 'playlist'
                   ? result['name'] as String?
                   : null,
-              coverUrl: result['cover_url'] as String?,
+              coverUrl: normalizeCoverReference(
+                result['cover_url']?.toString(),
+              ),
               searchExtensionId: extensionId,
             );
             return;
@@ -313,10 +316,12 @@ class TrackNotifier extends Notifier<TrackState> {
               isLoading: false,
               artistId: artistData['id'] as String?,
               artistName: artistData['name'] as String?,
-              coverUrl:
-                  artistData['image_url'] as String? ??
-                  artistData['images'] as String?,
-              headerImageUrl: artistData['header_image'] as String?,
+              coverUrl: normalizeRemoteHttpUrl(
+                (artistData['image_url'] ?? artistData['images'])?.toString(),
+              ),
+              headerImageUrl: normalizeRemoteHttpUrl(
+                artistData['header_image']?.toString(),
+              ),
               monthlyListeners: artistData['listeners'] as int?,
               artistAlbums: albums,
               artistTopTracks: topTracks.isNotEmpty ? topTracks : null,
@@ -357,7 +362,7 @@ class TrackNotifier extends Notifier<TrackState> {
             isLoading: false,
             albumId: id,
             albumName: albumInfo['name'] as String?,
-            coverUrl: albumInfo['images'] as String?,
+            coverUrl: normalizeRemoteHttpUrl(albumInfo['images']?.toString()),
           );
           _preWarmCacheForTracks(tracks);
         } else if (type == 'playlist') {
@@ -371,7 +376,9 @@ class TrackNotifier extends Notifier<TrackState> {
             tracks: tracks,
             isLoading: false,
             playlistName: playlistInfo['name'] as String?,
-            coverUrl: playlistInfo['images'] as String?,
+            coverUrl: normalizeRemoteHttpUrl(
+              playlistInfo['images']?.toString(),
+            ),
           );
           _preWarmCacheForTracks(tracks);
         } else if (type == 'artist') {
@@ -385,7 +392,7 @@ class TrackNotifier extends Notifier<TrackState> {
             isLoading: false,
             artistId: artistInfo['id'] as String?,
             artistName: artistInfo['name'] as String?,
-            coverUrl: artistInfo['images'] as String?,
+            coverUrl: normalizeRemoteHttpUrl(artistInfo['images']?.toString()),
             artistAlbums: albums,
           );
         }
@@ -422,7 +429,7 @@ class TrackNotifier extends Notifier<TrackState> {
             isLoading: false,
             albumId: 'qobuz:$id',
             albumName: albumInfo['name'] as String?,
-            coverUrl: albumInfo['images'] as String?,
+            coverUrl: normalizeRemoteHttpUrl(albumInfo['images']?.toString()),
           );
           _preWarmCacheForTracks(tracks);
         } else if (type == 'playlist') {
@@ -435,8 +442,9 @@ class TrackNotifier extends Notifier<TrackState> {
           final owner = playlistInfo['owner'] as Map<String, dynamic>?;
           final playlistName =
               (playlistInfo['name'] ?? owner?['name']) as String?;
-          final coverUrl =
-              (playlistInfo['images'] ?? owner?['images']) as String?;
+          final coverUrl = normalizeRemoteHttpUrl(
+            (playlistInfo['images'] ?? owner?['images'])?.toString(),
+          );
           state = TrackState(
             tracks: tracks,
             isLoading: false,
@@ -455,7 +463,7 @@ class TrackNotifier extends Notifier<TrackState> {
             isLoading: false,
             artistId: artistInfo['id'] as String?,
             artistName: artistInfo['name'] as String?,
-            coverUrl: artistInfo['images'] as String?,
+            coverUrl: normalizeRemoteHttpUrl(artistInfo['images']?.toString()),
             artistAlbums: albums,
           );
         }
@@ -492,7 +500,7 @@ class TrackNotifier extends Notifier<TrackState> {
             isLoading: false,
             albumId: 'tidal:$id',
             albumName: albumInfo['name'] as String?,
-            coverUrl: albumInfo['images'] as String?,
+            coverUrl: normalizeRemoteHttpUrl(albumInfo['images']?.toString()),
           );
           _preWarmCacheForTracks(tracks);
         } else if (type == 'playlist') {
@@ -505,8 +513,9 @@ class TrackNotifier extends Notifier<TrackState> {
           final owner = playlistInfo['owner'] as Map<String, dynamic>?;
           final playlistName =
               (playlistInfo['name'] ?? owner?['name']) as String?;
-          final coverUrl =
-              (playlistInfo['images'] ?? owner?['images']) as String?;
+          final coverUrl = normalizeRemoteHttpUrl(
+            (playlistInfo['images'] ?? owner?['images'])?.toString(),
+          );
           state = TrackState(
             tracks: tracks,
             isLoading: false,
@@ -525,7 +534,7 @@ class TrackNotifier extends Notifier<TrackState> {
             isLoading: false,
             artistId: artistInfo['id'] as String?,
             artistName: artistInfo['name'] as String?,
-            coverUrl: artistInfo['images'] as String?,
+            coverUrl: normalizeRemoteHttpUrl(artistInfo['images']?.toString()),
             artistAlbums: albums,
           );
         }
@@ -580,7 +589,7 @@ class TrackNotifier extends Notifier<TrackState> {
           isLoading: false,
           albumId: parsed['id'] as String?,
           albumName: albumInfo['name'] as String?,
-          coverUrl: albumInfo['images'] as String?,
+          coverUrl: normalizeRemoteHttpUrl(albumInfo['images']?.toString()),
         );
         _preWarmCacheForTracks(tracks);
       } else if (type == 'playlist') {
@@ -592,8 +601,9 @@ class TrackNotifier extends Notifier<TrackState> {
         final owner = playlistInfo['owner'] as Map<String, dynamic>?;
         final playlistName =
             (playlistInfo['name'] ?? owner?['name']) as String?;
-        final coverUrl =
-            (playlistInfo['images'] ?? owner?['images']) as String?;
+        final coverUrl = normalizeRemoteHttpUrl(
+          (playlistInfo['images'] ?? owner?['images'])?.toString(),
+        );
         state = TrackState(
           tracks: tracks,
           isLoading: false,
@@ -612,7 +622,7 @@ class TrackNotifier extends Notifier<TrackState> {
           isLoading: false,
           artistId: artistInfo['id'] as String?,
           artistName: artistInfo['name'] as String?,
-          coverUrl: artistInfo['images'] as String?,
+          coverUrl: normalizeRemoteHttpUrl(artistInfo['images']?.toString()),
           artistAlbums: albums,
         );
       }
@@ -986,7 +996,7 @@ class TrackNotifier extends Notifier<TrackState> {
       albumArtist: data['album_artist'] as String?,
       artistId: (data['artist_id'] ?? data['artistId'])?.toString(),
       albumId: data['album_id']?.toString(),
-      coverUrl: data['images'] as String?,
+      coverUrl: normalizeCoverReference(data['images']?.toString()),
       isrc: data['isrc'] as String?,
       duration: (durationMs / 1000).round(),
       trackNumber: data['track_number'] as int?,
@@ -1017,7 +1027,9 @@ class TrackNotifier extends Notifier<TrackState> {
       albumArtist: data['album_artist']?.toString(),
       artistId: (data['artist_id'] ?? data['artistId'])?.toString(),
       albumId: data['album_id']?.toString(),
-      coverUrl: (data['cover_url'] ?? data['images'])?.toString(),
+      coverUrl: normalizeCoverReference(
+        (data['cover_url'] ?? data['images'])?.toString(),
+      ),
       isrc: data['isrc']?.toString(),
       duration: (durationMs / 1000).round(),
       trackNumber: data['track_number'] as int?,
@@ -1062,7 +1074,9 @@ class TrackNotifier extends Notifier<TrackState> {
       name: data['name'] as String? ?? '',
       releaseDate: data['release_date'] as String? ?? '',
       totalTracks: data['total_tracks'] as int? ?? 0,
-      coverUrl: (data['cover_url'] ?? data['images'])?.toString(),
+      coverUrl: normalizeCoverReference(
+        (data['cover_url'] ?? data['images'])?.toString(),
+      ),
       albumType: data['album_type'] as String? ?? 'album',
       artists: data['artists'] as String? ?? '',
       providerId: data['provider_id']?.toString(),
@@ -1073,7 +1087,7 @@ class TrackNotifier extends Notifier<TrackState> {
     return SearchArtist(
       id: data['id'] as String? ?? '',
       name: data['name'] as String? ?? '',
-      imageUrl: data['images'] as String?,
+      imageUrl: normalizeRemoteHttpUrl(data['images']?.toString()),
       followers: data['followers'] as int? ?? 0,
       popularity: data['popularity'] as int? ?? 0,
     );
@@ -1084,7 +1098,7 @@ class TrackNotifier extends Notifier<TrackState> {
       id: data['id'] as String? ?? '',
       name: data['name'] as String? ?? '',
       artists: data['artists'] as String? ?? '',
-      imageUrl: data['images'] as String?,
+      imageUrl: normalizeRemoteHttpUrl(data['images']?.toString()),
       releaseDate: data['release_date'] as String?,
       totalTracks: data['total_tracks'] as int? ?? 0,
       albumType: data['album_type'] as String? ?? 'album',
@@ -1096,7 +1110,7 @@ class TrackNotifier extends Notifier<TrackState> {
       id: data['id'] as String? ?? '',
       name: data['name'] as String? ?? '',
       owner: data['owner'] as String? ?? '',
-      imageUrl: data['images'] as String?,
+      imageUrl: normalizeRemoteHttpUrl(data['images']?.toString()),
       totalTracks: data['total_tracks'] as int? ?? 0,
     );
   }

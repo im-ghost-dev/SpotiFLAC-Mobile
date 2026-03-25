@@ -1480,6 +1480,7 @@ func tryBuiltInProvider(providerID string, req DownloadRequest) (*DownloadRespon
 				TrackNumber: qobuzResult.TrackNumber,
 				DiscNumber:  qobuzResult.DiscNumber,
 				ISRC:        qobuzResult.ISRC,
+				CoverURL:    qobuzResult.CoverURL,
 			}
 		}
 		err = qobuzErr
@@ -1522,6 +1523,7 @@ func tryBuiltInProvider(providerID string, req DownloadRequest) (*DownloadRespon
 		TrackNumber:      result.TrackNumber,
 		DiscNumber:       result.DiscNumber,
 		ISRC:             result.ISRC,
+		CoverURL:         result.CoverURL,
 		Genre:            req.Genre,
 		Label:            req.Label,
 		Copyright:        req.Copyright,

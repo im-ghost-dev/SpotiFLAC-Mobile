@@ -14,6 +14,7 @@ import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/utils/string_utils.dart';
 import 'package:spotiflac_android/screens/album_screen.dart';
 import 'package:spotiflac_android/screens/home_tab.dart'
     show ExtensionAlbumScreen;
@@ -297,8 +298,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
               .toList();
         }
 
-        final topTracksList =
-            artistData['top_tracks'] as List<dynamic>? ?? [];
+        final topTracksList = artistData['top_tracks'] as List<dynamic>? ?? [];
         if (topTracksList.isNotEmpty) {
           topTracks = topTracksList
               .map((t) => _parseTrack(t as Map<String, dynamic>))
@@ -399,8 +399,9 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
           (data['artist_id'] ?? data['artistId'])?.toString() ??
           widget.artistId,
       albumId: data['album_id']?.toString() ?? album?.id,
-      coverUrl: (data['cover_url'] ?? data['images'] ?? album?.coverUrl)
-          ?.toString(),
+      coverUrl: normalizeCoverReference(
+        (data['cover_url'] ?? data['images'] ?? album?.coverUrl)?.toString(),
+      ),
       isrc: data['isrc']?.toString(),
       duration: (durationMs / 1000).round(),
       trackNumber: data['track_number'] as int?,
@@ -414,18 +415,18 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
 
   ArtistAlbum _parseArtistAlbum(Map<String, dynamic> data) {
     final totalTracksValue = data['total_tracks'];
-    final totalTracks =
-        totalTracksValue is int
-            ? totalTracksValue
-            : int.tryParse(totalTracksValue?.toString() ?? '') ?? 0;
+    final totalTracks = totalTracksValue is int
+        ? totalTracksValue
+        : int.tryParse(totalTracksValue?.toString() ?? '') ?? 0;
 
     return ArtistAlbum(
       id: data['id'] as String? ?? '',
       name: (data['name'] ?? data['title'] ?? '').toString(),
       releaseDate: (data['release_date'] ?? '').toString(),
       totalTracks: totalTracks,
-      coverUrl: (data['cover_url'] ?? data['images'] ?? data['cover_art'])
-          ?.toString(),
+      coverUrl: normalizeCoverReference(
+        (data['cover_url'] ?? data['images'] ?? data['cover_art'])?.toString(),
+      ),
       albumType: (data['album_type'] ?? data['type'] ?? 'album').toString(),
       artists: (data['artists'] ?? data['artist'] ?? widget.artistName)
           .toString(),
@@ -1359,8 +1360,10 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
             },
             itemBuilder: (context, pageIndex) {
               final startIndex = pageIndex * tracksPerPage;
-              final endIndex =
-                  (startIndex + tracksPerPage).clamp(0, tracks.length);
+              final endIndex = (startIndex + tracksPerPage).clamp(
+                0,
+                tracks.length,
+              );
               final pageTracks = tracks.sublist(startIndex, endIndex);
 
               return Column(

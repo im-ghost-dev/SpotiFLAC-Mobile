@@ -128,6 +128,7 @@ type DownloadResult struct {
 	TrackNumber   int
 	DiscNumber    int
 	ISRC          string
+	CoverURL      string
 	Genre         string
 	Label         string
 	Copyright     string
@@ -214,6 +215,11 @@ func buildDownloadSuccessResponse(
 		copyright = req.Copyright
 	}
 
+	coverURL := strings.TrimSpace(result.CoverURL)
+	if coverURL == "" {
+		coverURL = strings.TrimSpace(req.CoverURL)
+	}
+
 	return DownloadResponse{
 		Success:          true,
 		Message:          message,
@@ -230,7 +236,7 @@ func buildDownloadSuccessResponse(
 		TrackNumber:      trackNumber,
 		DiscNumber:       discNumber,
 		ISRC:             isrc,
-		CoverURL:         req.CoverURL,
+		CoverURL:         coverURL,
 		Genre:            genre,
 		Label:            label,
 		Copyright:        copyright,
@@ -378,6 +384,7 @@ func DownloadTrack(requestJSON string) (string, error) {
 				TrackNumber: qobuzResult.TrackNumber,
 				DiscNumber:  qobuzResult.DiscNumber,
 				ISRC:        qobuzResult.ISRC,
+				CoverURL:    qobuzResult.CoverURL,
 				LyricsLRC:   qobuzResult.LyricsLRC,
 			}
 		}
@@ -586,6 +593,7 @@ func DownloadWithFallback(requestJSON string) (string, error) {
 					TrackNumber: qobuzResult.TrackNumber,
 					DiscNumber:  qobuzResult.DiscNumber,
 					ISRC:        qobuzResult.ISRC,
+					CoverURL:    qobuzResult.CoverURL,
 					LyricsLRC:   qobuzResult.LyricsLRC,
 				}
 			} else if !errors.Is(qobuzErr, ErrDownloadCancelled) {

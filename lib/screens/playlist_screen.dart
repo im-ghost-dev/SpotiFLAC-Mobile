@@ -8,6 +8,7 @@ import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/library_collections_provider.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/utils/string_utils.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/providers/playback_provider.dart';
@@ -128,7 +129,9 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       albumArtist: data['album_artist']?.toString(),
       artistId: (data['artist_id'] ?? data['artistId'])?.toString(),
       albumId: data['album_id']?.toString(),
-      coverUrl: (data['cover_url'] ?? data['images'])?.toString(),
+      coverUrl: normalizeCoverReference(
+        (data['cover_url'] ?? data['images'])?.toString(),
+      ),
       isrc: data['isrc']?.toString(),
       duration: (durationMs / 1000).round(),
       trackNumber: data['track_number'] as int?,
@@ -532,7 +535,12 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
       tooltip: context.l10n.tooltipAddToPlaylist,
       onPressed: _tracks.isEmpty
           ? null
-          : () => showAddTracksToPlaylistSheet(context, ref, _tracks, playlistNamePrefill: widget.playlistName),
+          : () => showAddTracksToPlaylistSheet(
+              context,
+              ref,
+              _tracks,
+              playlistNamePrefill: widget.playlistName,
+            ),
     );
   }
 
@@ -611,17 +619,21 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
     // Skip already-downloaded tracks
     final historyState = ref.read(downloadHistoryProvider);
     final settings = ref.read(settingsProvider);
-    final localLibState = (settings.localLibraryEnabled && settings.localLibraryShowDuplicates)
+    final localLibState =
+        (settings.localLibraryEnabled && settings.localLibraryShowDuplicates)
         ? ref.read(localLibraryProvider)
         : null;
     final tracksToQueue = <Track>[];
     int skippedCount = 0;
 
     for (final track in tracks) {
-      final isInHistory = historyState.isDownloaded(track.id) ||
+      final isInHistory =
+          historyState.isDownloaded(track.id) ||
           (track.isrc != null && historyState.getByIsrc(track.isrc!) != null) ||
-          historyState.findByTrackAndArtist(track.name, track.artistName) != null;
-      final isInLocal = localLibState?.existsInLibrary(
+          historyState.findByTrackAndArtist(track.name, track.artistName) !=
+              null;
+      final isInLocal =
+          localLibState?.existsInLibrary(
             isrc: track.isrc,
             trackName: track.name,
             artistName: track.artistName,
@@ -679,9 +691,9 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
     final message = skipped > 0
         ? context.l10n.discographySkippedDownloaded(added, skipped)
         : context.l10n.snackbarAddedTracksToQueue(added);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

@@ -34,6 +34,7 @@ class AppSettings {
   final bool enableLogging;
   final bool useExtensionProviders;
   final String? searchProvider;
+  final String? homeFeedProvider;
   final bool separateSingles;
   final String albumFolderStructure;
   final bool showExtensionStore;
@@ -113,6 +114,7 @@ class AppSettings {
     this.enableLogging = false,
     this.useExtensionProviders = true,
     this.searchProvider,
+    this.homeFeedProvider,
     this.separateSingles = false,
     this.albumFolderStructure = 'artist_album',
     this.showExtensionStore = true,
@@ -179,6 +181,8 @@ class AppSettings {
     bool? useExtensionProviders,
     String? searchProvider,
     bool clearSearchProvider = false,
+    String? homeFeedProvider,
+    bool clearHomeFeedProvider = false,
     bool? separateSingles,
     String? albumFolderStructure,
     bool? showExtensionStore,
@@ -244,6 +248,9 @@ class AppSettings {
       searchProvider: clearSearchProvider
           ? null
           : (searchProvider ?? this.searchProvider),
+      homeFeedProvider: clearHomeFeedProvider
+          ? null
+          : (homeFeedProvider ?? this.homeFeedProvider),
       separateSingles: separateSingles ?? this.separateSingles,
       albumFolderStructure: albumFolderStructure ?? this.albumFolderStructure,
       showExtensionStore: showExtensionStore ?? this.showExtensionStore,

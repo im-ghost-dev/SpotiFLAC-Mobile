@@ -519,7 +519,8 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
   String get _filePath =>
       _isLocalItem ? _localLibraryItem!.filePath : _downloadItem!.filePath;
-  String? get _coverUrl => _isLocalItem ? null : _downloadItem!.coverUrl;
+  String? get _coverUrl =>
+      _isLocalItem ? null : normalizeRemoteHttpUrl(_downloadItem!.coverUrl);
   String? get _localCoverPath =>
       _isLocalItem ? _localLibraryItem!.coverPath : null;
   String? get _spotifyId => _isLocalItem ? null : _downloadItem!.spotifyId;

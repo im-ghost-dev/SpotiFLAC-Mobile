@@ -11,6 +11,7 @@ import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/utils/file_access.dart';
+import 'package:spotiflac_android/utils/string_utils.dart';
 import 'package:spotiflac_android/widgets/track_collection_quick_actions.dart';
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
 import 'package:spotiflac_android/providers/library_collections_provider.dart';
@@ -94,7 +95,10 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
           .recordAlbumAccess(
             id: widget.albumId,
             name: widget.albumName,
-            artistName: widget.artistName ?? widget.tracks?.firstOrNull?.albumArtist ?? widget.tracks?.firstOrNull?.artistName,
+            artistName:
+                widget.artistName ??
+                widget.tracks?.firstOrNull?.albumArtist ??
+                widget.tracks?.firstOrNull?.artistName,
             imageUrl: widget.coverUrl,
             providerId: providerId,
           );
@@ -226,7 +230,7 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
       artistId:
           (data['artist_id'] ?? data['artistId'])?.toString() ?? _artistId,
       albumId: data['album_id']?.toString() ?? widget.albumId,
-      coverUrl: data['images'] as String?,
+      coverUrl: normalizeCoverReference(data['images']?.toString()),
       isrc: data['isrc'] as String?,
       duration: ((data['duration_ms'] as int? ?? 0) / 1000).round(),
       trackNumber: data['track_number'] as int?,
@@ -280,7 +284,8 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
   ) {
     final expandedHeight = _calculateExpandedHeight(context);
     final tracks = _tracks ?? [];
-    final artistName = widget.artistName ??
+    final artistName =
+        widget.artistName ??
         (tracks.isNotEmpty
             ? (tracks.first.albumArtist ?? tracks.first.artistName)
             : null);
@@ -574,17 +579,21 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
     // Skip already-downloaded tracks
     final historyState = ref.read(downloadHistoryProvider);
     final settings = ref.read(settingsProvider);
-    final localLibState = (settings.localLibraryEnabled && settings.localLibraryShowDuplicates)
+    final localLibState =
+        (settings.localLibraryEnabled && settings.localLibraryShowDuplicates)
         ? ref.read(localLibraryProvider)
         : null;
     final tracksToQueue = <Track>[];
     int skippedCount = 0;
 
     for (final track in tracks) {
-      final isInHistory = historyState.isDownloaded(track.id) ||
+      final isInHistory =
+          historyState.isDownloaded(track.id) ||
           (track.isrc != null && historyState.getByIsrc(track.isrc!) != null) ||
-          historyState.findByTrackAndArtist(track.name, track.artistName) != null;
-      final isInLocal = localLibState?.existsInLibrary(
+          historyState.findByTrackAndArtist(track.name, track.artistName) !=
+              null;
+      final isInLocal =
+          localLibState?.existsInLibrary(
             isrc: track.isrc,
             trackName: track.name,
             artistName: track.artistName,
@@ -617,7 +626,11 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
         onSelect: (quality, service) {
           ref
               .read(downloadQueueProvider.notifier)
-              .addMultipleToQueue(tracksToQueue, service, qualityOverride: quality);
+              .addMultipleToQueue(
+                tracksToQueue,
+                service,
+                qualityOverride: quality,
+              );
           _showQueuedSnackbar(context, tracksToQueue.length, skippedCount);
         },
       );
@@ -633,9 +646,9 @@ class _AlbumScreenState extends ConsumerState<AlbumScreen> {
     final message = skipped > 0
         ? context.l10n.discographySkippedDownloaded(added, skipped)
         : context.l10n.snackbarAddedTracksToQueue(added);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildLoveAllButton() {
