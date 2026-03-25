@@ -92,9 +92,9 @@ class PlatformBridge {
   }
 
   static Stream<Map<String, dynamic>> downloadProgressStream() {
-    return _downloadProgressEvents
-        .receiveBroadcastStream()
-        .map(_decodeMapResult);
+    return _downloadProgressEvents.receiveBroadcastStream().map(
+      _decodeMapResult,
+    );
   }
 
   static Future<void> exitApp() async {
@@ -1184,9 +1184,9 @@ class PlatformBridge {
   }
 
   static Stream<Map<String, dynamic>> libraryScanProgressStream() {
-    return _libraryScanProgressEvents
-        .receiveBroadcastStream()
-        .map(_decodeMapResult);
+    return _libraryScanProgressEvents.receiveBroadcastStream().map(
+      _decodeMapResult,
+    );
   }
 
   /// Cancel ongoing library scan

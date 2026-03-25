@@ -23,6 +23,7 @@ import 'package:spotiflac_android/utils/logger.dart';
 import 'package:spotiflac_android/utils/lyrics_metadata_helper.dart';
 import 'package:spotiflac_android/utils/mime_utils.dart';
 import 'package:spotiflac_android/utils/string_utils.dart';
+import 'package:spotiflac_android/widgets/audio_analysis_widget.dart';
 
 final _log = AppLogger('TrackMetadata');
 
@@ -769,6 +770,11 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
                   const SizedBox(height: 16),
 
                   _buildLyricsCard(context, colorScheme),
+
+                  if (_fileExists) ...[
+                    const SizedBox(height: 16),
+                    AudioAnalysisCard(filePath: _filePath),
+                  ],
 
                   const SizedBox(height: 24),
 

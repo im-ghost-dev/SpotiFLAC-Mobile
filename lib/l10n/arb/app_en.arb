@@ -4015,5 +4015,57 @@
   "selectionSelectPlaylistsToDelete": "Select playlists to delete",
   "@selectionSelectPlaylistsToDelete": {
     "description": "Hint shown when no playlists are selected for deletion"
+  },
+  "audioAnalysisTitle": "Audio Quality Analysis",
+  "@audioAnalysisTitle": {
+    "description": "Title for audio analysis section"
+  },
+  "audioAnalysisDescription": "Verify lossless quality with spectrum analysis",
+  "@audioAnalysisDescription": {
+    "description": "Description for audio analysis tap-to-analyze prompt"
+  },
+  "audioAnalysisAnalyzing": "Analyzing audio...",
+  "@audioAnalysisAnalyzing": {
+    "description": "Loading text while analyzing audio"
+  },
+  "audioAnalysisSampleRate": "Sample Rate",
+  "@audioAnalysisSampleRate": {
+    "description": "Sample rate metric label"
+  },
+  "audioAnalysisBitDepth": "Bit Depth",
+  "@audioAnalysisBitDepth": {
+    "description": "Bit depth metric label"
+  },
+  "audioAnalysisChannels": "Channels",
+  "@audioAnalysisChannels": {
+    "description": "Channels metric label"
+  },
+  "audioAnalysisDuration": "Duration",
+  "@audioAnalysisDuration": {
+    "description": "Duration metric label"
+  },
+  "audioAnalysisNyquist": "Nyquist",
+  "@audioAnalysisNyquist": {
+    "description": "Nyquist frequency metric label"
+  },
+  "audioAnalysisFileSize": "Size",
+  "@audioAnalysisFileSize": {
+    "description": "File size metric label"
+  },
+  "audioAnalysisDynamicRange": "Dynamic Range",
+  "@audioAnalysisDynamicRange": {
+    "description": "Dynamic range metric label"
+  },
+  "audioAnalysisPeak": "Peak",
+  "@audioAnalysisPeak": {
+    "description": "Peak amplitude metric label"
+  },
+  "audioAnalysisRms": "RMS",
+  "@audioAnalysisRms": {
+    "description": "RMS level metric label"
+  },
+  "audioAnalysisSamples": "Samples",
+  "@audioAnalysisSamples": {
+    "description": "Total samples metric label"
   }
 }

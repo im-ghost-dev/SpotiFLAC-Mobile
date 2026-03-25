@@ -5228,6 +5228,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select playlists to delete'**
   String get selectionSelectPlaylistsToDelete;
+
+  /// Title for audio analysis section
+  ///
+  /// In en, this message translates to:
+  /// **'Audio Quality Analysis'**
+  String get audioAnalysisTitle;
+
+  /// Description for audio analysis tap-to-analyze prompt
+  ///
+  /// In en, this message translates to:
+  /// **'Verify lossless quality with spectrum analysis'**
+  String get audioAnalysisDescription;
+
+  /// Loading text while analyzing audio
+  ///
+  /// In en, this message translates to:
+  /// **'Analyzing audio...'**
+  String get audioAnalysisAnalyzing;
+
+  /// Sample rate metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Sample Rate'**
+  String get audioAnalysisSampleRate;
+
+  /// Bit depth metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Bit Depth'**
+  String get audioAnalysisBitDepth;
+
+  /// Channels metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Channels'**
+  String get audioAnalysisChannels;
+
+  /// Duration metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get audioAnalysisDuration;
+
+  /// Nyquist frequency metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Nyquist'**
+  String get audioAnalysisNyquist;
+
+  /// File size metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get audioAnalysisFileSize;
+
+  /// Dynamic range metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Dynamic Range'**
+  String get audioAnalysisDynamicRange;
+
+  /// Peak amplitude metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Peak'**
+  String get audioAnalysisPeak;
+
+  /// RMS level metric label
+  ///
+  /// In en, this message translates to:
+  /// **'RMS'**
+  String get audioAnalysisRms;
+
+  /// Total samples metric label
+  ///
+  /// In en, this message translates to:
+  /// **'Samples'**
+  String get audioAnalysisSamples;
 }
 
 class _AppLocalizationsDelegate

@@ -3054,4 +3054,44 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get selectionSelectPlaylistsToDelete => 'Select playlists to delete';
+
+  @override
+  String get audioAnalysisTitle => 'Audio Quality Analysis';
+
+  @override
+  String get audioAnalysisDescription =>
+      'Verify lossless quality with spectrum analysis';
+
+  @override
+  String get audioAnalysisAnalyzing => 'Analyzing audio...';
+
+  @override
+  String get audioAnalysisSampleRate => 'Sample Rate';
+
+  @override
+  String get audioAnalysisBitDepth => 'Bit Depth';
+
+  @override
+  String get audioAnalysisChannels => 'Channels';
+
+  @override
+  String get audioAnalysisDuration => 'Duration';
+
+  @override
+  String get audioAnalysisNyquist => 'Nyquist';
+
+  @override
+  String get audioAnalysisFileSize => 'Size';
+
+  @override
+  String get audioAnalysisDynamicRange => 'Dynamic Range';
+
+  @override
+  String get audioAnalysisPeak => 'Peak';
+
+  @override
+  String get audioAnalysisRms => 'RMS';
+
+  @override
+  String get audioAnalysisSamples => 'Samples';
 }
