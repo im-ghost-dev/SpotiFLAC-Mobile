@@ -1582,6 +1582,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Исполнитель/Альбом и Исполнитель/Сингл/';
 
   @override
+  String get albumFolderArtistAlbumFlat => 'Artist / Album (Singles flat)';
+
+  @override
+  String get albumFolderArtistAlbumFlatSubtitle =>
+      'Artist/Album/ and Artist/song.flac';
+
+  @override
   String get downloadedAlbumDeleteSelected => 'Удалить выбранные';
 
   @override

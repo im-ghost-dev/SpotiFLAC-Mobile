@@ -841,6 +841,8 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
         return 'Albums/[Year] Album/';
       case 'artist_album_singles':
         return 'Artist/Album/ + Artist/Singles/';
+      case 'artist_album_flat':
+        return 'Artist/Album/ + Artist/song.flac';
       default:
         return 'Albums/Artist/Album Name/';
     }
@@ -927,6 +929,20 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                 ref
                     .read(settingsProvider.notifier)
                     .setAlbumFolderStructure('artist_album_singles');
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline_outlined),
+              title: Text(context.l10n.albumFolderArtistAlbumFlat),
+              subtitle: Text(context.l10n.albumFolderArtistAlbumFlatSubtitle),
+              trailing: current == 'artist_album_flat'
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () {
+                ref
+                    .read(settingsProvider.notifier)
+                    .setAlbumFolderStructure('artist_album_flat');
                 Navigator.pop(context);
               },
             ),

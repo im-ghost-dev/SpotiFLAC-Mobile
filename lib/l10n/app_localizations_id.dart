@@ -1562,6 +1562,13 @@ class AppLocalizationsId extends AppLocalizations {
       'Artis/Album/ dan Artis/Single/';
 
   @override
+  String get albumFolderArtistAlbumFlat => 'Artist / Album (Singles flat)';
+
+  @override
+  String get albumFolderArtistAlbumFlatSubtitle =>
+      'Artist/Album/ and Artist/song.flac';
+
+  @override
   String get downloadedAlbumDeleteSelected => 'Hapus yang Dipilih';
 
   @override

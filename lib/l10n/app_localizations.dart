@@ -2902,6 +2902,18 @@ abstract class AppLocalizations {
   /// **'Artist/Album/ and Artist/Singles/'**
   String get albumFolderArtistAlbumSinglesSubtitle;
 
+  /// Album folder option with singles directly in artist folder
+  ///
+  /// In en, this message translates to:
+  /// **'Artist / Album (Singles flat)'**
+  String get albumFolderArtistAlbumFlat;
+
+  /// Folder structure example for flat singles
+  ///
+  /// In en, this message translates to:
+  /// **'Artist/Album/ and Artist/song.flac'**
+  String get albumFolderArtistAlbumFlatSubtitle;
+
   /// Button - delete selected tracks
   ///
   /// In en, this message translates to:

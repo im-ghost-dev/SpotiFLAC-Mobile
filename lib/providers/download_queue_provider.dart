@@ -1908,6 +1908,20 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         }
       }
 
+      if (albumFolderStructure == 'artist_album_flat') {
+        if (isSingle) {
+          final artistPath = '$baseDir${Platform.pathSeparator}$artistName';
+          await _ensureDirExists(artistPath, label: 'Artist folder');
+          return artistPath;
+        } else {
+          final albumName = _sanitizeFolderName(track.albumName);
+          final albumPath =
+              '$baseDir${Platform.pathSeparator}$artistName${Platform.pathSeparator}$albumName';
+          await _ensureDirExists(albumPath, label: 'Artist Album folder');
+          return albumPath;
+        }
+      }
+
       if (isSingle) {
         final singlesPath = '$baseDir${Platform.pathSeparator}Singles';
         await _ensureDirExists(singlesPath, label: 'Singles folder');

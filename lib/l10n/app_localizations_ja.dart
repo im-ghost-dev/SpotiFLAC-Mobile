@@ -1540,6 +1540,13 @@ class AppLocalizationsJa extends AppLocalizations {
       'Artist/Album/ and Artist/Singles/';
 
   @override
+  String get albumFolderArtistAlbumFlat => 'Artist / Album (Singles flat)';
+
+  @override
+  String get albumFolderArtistAlbumFlatSubtitle =>
+      'Artist/Album/ and Artist/song.flac';
+
+  @override
   String get downloadedAlbumDeleteSelected => '選択済みを削除';
 
   @override

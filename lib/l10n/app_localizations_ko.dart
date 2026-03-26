@@ -1533,6 +1533,13 @@ class AppLocalizationsKo extends AppLocalizations {
       'Artist/Album/ and Artist/Singles/';
 
   @override
+  String get albumFolderArtistAlbumFlat => 'Artist / Album (Singles flat)';
+
+  @override
+  String get albumFolderArtistAlbumFlatSubtitle =>
+      'Artist/Album/ and Artist/song.flac';
+
+  @override
   String get downloadedAlbumDeleteSelected => 'Delete Selected';
 
   @override

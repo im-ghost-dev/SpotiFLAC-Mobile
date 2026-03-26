@@ -2029,6 +2029,14 @@
   "@albumFolderArtistAlbumSinglesSubtitle": {
     "description": "Folder structure example"
   },
+  "albumFolderArtistAlbumFlat": "Artist / Album (Singles flat)",
+  "@albumFolderArtistAlbumFlat": {
+    "description": "Album folder option with singles directly in artist folder"
+  },
+  "albumFolderArtistAlbumFlatSubtitle": "Artist/Album/ and Artist/song.flac",
+  "@albumFolderArtistAlbumFlatSubtitle": {
+    "description": "Folder structure example for flat singles"
+  },
   "downloadedAlbumDeleteSelected": "Delete Selected",
   "@downloadedAlbumDeleteSelected": {
     "description": "Button - delete selected tracks"

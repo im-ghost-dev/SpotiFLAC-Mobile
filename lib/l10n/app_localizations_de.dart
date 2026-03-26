@@ -1579,6 +1579,13 @@ class AppLocalizationsDe extends AppLocalizations {
       'Künstler/Album/ und Künstler/Singles/';
 
   @override
+  String get albumFolderArtistAlbumFlat => 'Artist / Album (Singles flat)';
+
+  @override
+  String get albumFolderArtistAlbumFlatSubtitle =>
+      'Artist/Album/ and Artist/song.flac';
+
+  @override
   String get downloadedAlbumDeleteSelected => 'Ausgewählte löschen';
 
   @override
