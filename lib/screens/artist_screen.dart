@@ -805,7 +805,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     );
     final singleTracks = singles.fold<int>(0, (sum, a) => sum + a.totalTracks);
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -939,7 +939,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
       return;
     }
 
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => _FetchingProgressDialog(
@@ -1121,6 +1121,10 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
   Track _parseTrackFromDeezer(Map<String, dynamic> data, ArtistAlbum album) {
     int durationMs = 0;
     final durationValue = data['duration'];
+    final artistData = data['artist'];
+    final artistName = artistData is Map<String, dynamic>
+        ? (artistData['name'] as String? ?? widget.artistName)
+        : (artistData?.toString() ?? widget.artistName);
     if (durationValue is int) {
       durationMs = durationValue * 1000; // Deezer returns seconds
     } else if (durationValue is double) {
@@ -1130,9 +1134,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     return Track(
       id: 'deezer:${data['id']}',
       name: (data['title'] ?? data['name'] ?? '').toString(),
-      artistName:
-          (data['artist']?['name'] ?? data['artist'] ?? widget.artistName)
-              .toString(),
+      artistName: artistName,
       albumName: album.name,
       albumArtist: widget.artistName,
       artistId: widget.artistId,
@@ -1938,7 +1940,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     if (album.providerId != null && album.providerId!.isNotEmpty) {
       Navigator.push(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (context) => ExtensionAlbumScreen(
             extensionId: album.providerId!,
             albumId: album.id,
@@ -1950,7 +1952,7 @@ class _ArtistScreenState extends ConsumerState<ArtistScreen> {
     } else {
       Navigator.push(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (context) => AlbumScreen(
             albumId: album.id,
             albumName: album.name,

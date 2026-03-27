@@ -124,7 +124,7 @@ class CsvImportService {
           );
 
           if (i < tracks.length - 1) {
-            await Future.delayed(const Duration(milliseconds: 100));
+            await Future<void>.delayed(const Duration(milliseconds: 100));
           }
           continue;
         }

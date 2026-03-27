@@ -304,6 +304,7 @@ class MainActivity: FlutterFragmentActivity() {
             ".mp3" -> "audio/mpeg"
             ".opus" -> "audio/ogg"
             ".flac" -> "audio/flac"
+            ".lrc" -> "application/octet-stream"
             else -> "application/octet-stream"
         }
     }

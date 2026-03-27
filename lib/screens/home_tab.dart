@@ -556,7 +556,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
           pending != query &&
           mounted &&
           _urlController.text.trim() == pending) {
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
         if (mounted && _urlController.text.trim() == pending) {
           _executeLiveSearch(pending);
         }
@@ -681,7 +681,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
       final extensionId = trackState.searchExtensionId;
       Navigator.push(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (context) => AlbumScreen(
             albumId: trackState.albumId!,
             albumName: trackState.albumName!,
@@ -708,7 +708,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
       Navigator.push(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (context) => PlaylistScreen(
             playlistName: trackState.playlistName!,
             coverUrl: trackState.coverUrl,
@@ -729,7 +729,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
       final extensionId = trackState.searchExtensionId;
       Navigator.push(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (context) => ArtistScreen(
             artistId: trackState.artistId!,
             artistName: trackState.artistName!,
@@ -798,7 +798,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
       if (progressDialogInitialized || !mounted) return;
       progressDialogInitialized = true;
       progressDialogVisible = true;
-      showDialog(
+      showDialog<void>(
         context: this.context,
         useRootNavigator: false,
         barrierDismissible: false,
@@ -1691,7 +1691,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
       case 'album':
         Navigator.push(
           context,
-          MaterialPageRoute(
+          MaterialPageRoute<void>(
             builder: (context) => ExtensionAlbumScreen(
               extensionId: extensionId,
               albumId: item.id,
@@ -1704,7 +1704,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
       case 'playlist':
         Navigator.push(
           context,
-          MaterialPageRoute(
+          MaterialPageRoute<void>(
             builder: (context) => ExtensionPlaylistScreen(
               extensionId: extensionId,
               playlistId: item.id,
@@ -1717,7 +1717,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
       case 'artist':
         Navigator.push(
           context,
-          MaterialPageRoute(
+          MaterialPageRoute<void>(
             builder: (context) => ExtensionArtistScreen(
               extensionId: extensionId,
               artistId: item.id,
@@ -1738,7 +1738,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
   void _showTrackBottomSheet(ExploreItem item) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surface,
@@ -1884,7 +1884,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     if (item.albumId != null && item.albumId!.isNotEmpty) {
       Navigator.push(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (context) => ExtensionAlbumScreen(
             extensionId: item.providerId ?? 'spotify-web',
             albumId: item.albumId!,
@@ -2148,7 +2148,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             item.providerId != 'qobuz') {
           Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => ExtensionArtistScreen(
                 extensionId: item.providerId!,
                 artistId: item.id,
@@ -2160,7 +2160,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
         } else {
           Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => ArtistScreen(
                 artistId: item.id,
                 artistName: item.name,
@@ -2174,7 +2174,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
         if (item.providerId == 'download') {
           Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => DownloadedAlbumScreen(
                 albumName: item.name,
                 artistName: item.subtitle ?? '',
@@ -2190,7 +2190,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             item.providerId != 'qobuz') {
           Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => ExtensionAlbumScreen(
                 extensionId: item.providerId!,
                 albumId: item.id,
@@ -2202,7 +2202,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
         } else {
           Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => AlbumScreen(
                 albumId: item.id,
                 albumName: item.name,
@@ -2240,7 +2240,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
             item.providerId != 'qobuz') {
           Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => ExtensionPlaylistScreen(
                 extensionId: item.providerId!,
                 playlistId: item.id,
@@ -2252,7 +2252,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
         } else {
           Navigator.push(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (context) => PlaylistScreen(
                 playlistName: item.name,
                 coverUrl: item.imageUrl,
@@ -2275,7 +2275,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
         );
     if (!mounted) return;
     final result = await navigator.push(
-      slidePageRoute(page: TrackMetadataScreen(item: item)),
+      slidePageRoute<bool>(page: TrackMetadataScreen(item: item)),
     );
     await DownloadedEmbeddedCoverResolver.scheduleRefreshForPath(
       item.filePath,
@@ -2910,7 +2910,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ArtistScreen(
           artistId: artistId,
           artistName: artistName,
@@ -2936,7 +2936,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     // Keep the full ID with prefix (e.g., "deezer:123") for AlbumScreen to detect source
     Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => AlbumScreen(
           albumId: album.id,
           albumName: album.name,
@@ -2963,7 +2963,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
     // Keep the full ID with prefix (e.g., "deezer:123") for PlaylistScreen to detect source
     Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => PlaylistScreen(
           playlistName: playlist.name,
           coverUrl: playlist.imageUrl,
@@ -2999,7 +2999,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ExtensionAlbumScreen(
           extensionId: extensionId,
           albumId: albumItem.id,
@@ -3035,7 +3035,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ExtensionPlaylistScreen(
           extensionId: extensionId,
           playlistId: playlistItem.id,
@@ -3070,7 +3070,7 @@ class _HomeTabState extends ConsumerState<HomeTab>
 
     Navigator.push(
       context,
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ExtensionArtistScreen(
           extensionId: extensionId,
           artistId: artistItem.id,

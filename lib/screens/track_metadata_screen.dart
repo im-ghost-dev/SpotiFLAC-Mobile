@@ -2135,7 +2135,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
             treeUri: treeUri,
             relativeDir: relativeDir,
             fileName: '$baseName.lrc',
-            mimeType: 'text/plain',
+            mimeType: 'application/octet-stream',
             srcPath: tempOutput,
           );
           try {
@@ -2533,7 +2533,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     WidgetRef ref,
     ColorScheme colorScheme,
   ) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: screenContext,
       useRootNavigator: true,
       shape: const RoundedRectangleBorder(
@@ -2824,7 +2824,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     bool isLosslessTarget =
         selectedFormat == 'ALAC' || selectedFormat == 'FLAC';
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       shape: const RoundedRectangleBorder(
@@ -3023,7 +3023,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
 
       if (!mounted) return;
 
-      showModalBottomSheet(
+      showModalBottomSheet<void>(
         context: this.context,
         useRootNavigator: true,
         isScrollControlled: true,
@@ -3186,7 +3186,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     required String date,
     required List<CueSplitTrackInfo> tracks,
   }) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -3442,7 +3442,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     final isLossless =
         targetFormat.toUpperCase() == 'ALAC' ||
         targetFormat.toUpperCase() == 'FLAC';
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -3792,7 +3792,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
     WidgetRef ref,
     ColorScheme colorScheme,
   ) {
-    showDialog(
+    showDialog<void>(
       context: screenContext,
       useRootNavigator: true,
       builder: (dialogContext) => AlertDialog(

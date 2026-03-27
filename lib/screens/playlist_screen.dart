@@ -578,7 +578,7 @@ class _PlaylistScreenState extends ConsumerState<PlaylistScreen> {
 
   void _confirmDownloadAll(BuildContext context) {
     if (_tracks.isEmpty) return;
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         final colorScheme = Theme.of(dialogContext).colorScheme;

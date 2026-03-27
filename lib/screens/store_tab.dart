@@ -416,7 +416,7 @@ class _StoreTabState extends ConsumerState<StoreTab> {
 
   void _showChangeRepoDialog(String currentUrl) {
     final changeUrlController = TextEditingController(text: currentUrl);
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.storeRepoDialogTitle),
@@ -583,7 +583,7 @@ class _StoreTabState extends ConsumerState<StoreTab> {
 
   void _showExtensionDetails(StoreExtension ext) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (context) => ExtensionDetailsScreen(extension: ext),
       ),
     );

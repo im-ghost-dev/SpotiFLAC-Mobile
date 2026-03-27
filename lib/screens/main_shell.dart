@@ -79,7 +79,7 @@ class _MainShellState extends ConsumerState<MainShell>
         _log.d('Received shared URL from stream: $url');
         _handleSharedUrl(url);
       },
-      onError: (error) {
+      onError: (Object error) {
         _log.e('Share stream error: $error');
       },
       cancelOnError: false,
@@ -92,7 +92,7 @@ class _MainShellState extends ConsumerState<MainShell>
     if (!extState.isInitialized) {
       _log.d('Waiting for extensions to initialize before handling URL...');
       for (int i = 0; i < 50; i++) {
-        await Future.delayed(const Duration(milliseconds: 100));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
         if (!mounted) return;
         if (ref.read(extensionProvider).isInitialized) {
           _log.d('Extensions initialized, proceeding with URL handling');
@@ -177,7 +177,7 @@ class _MainShellState extends ConsumerState<MainShell>
 
     final colorScheme = Theme.of(context).colorScheme;
 
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(

@@ -510,7 +510,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
                       ),
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (_) => const LyricsProviderPriorityPage(),
                         ),
                       ),
@@ -853,7 +853,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     WidgetRef ref,
     String current,
   ) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       builder: (context) => SafeArea(
@@ -1002,7 +1002,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
       );
     }
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -1220,7 +1220,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final settings = ref.read(settingsProvider);
     final isSafMode =
         settings.storageMode == 'saf' && settings.downloadTreeUri.isNotEmpty;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1298,7 +1298,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
 
   void _showIOSDirectoryOptions(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1493,7 +1493,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     String current,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1598,7 +1598,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     String current,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1685,7 +1685,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final controller = TextEditingController(text: currentLanguage);
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1771,7 +1771,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     String current,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1843,7 +1843,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
   ) {
     final colorScheme = Theme.of(context).colorScheme;
     final normalizedCurrent = current.trim().toUpperCase();
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1911,7 +1911,7 @@ class _DownloadSettingsPageState extends ConsumerState<DownloadSettingsPage> {
     String current,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,

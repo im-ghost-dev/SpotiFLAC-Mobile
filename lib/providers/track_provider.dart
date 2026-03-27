@@ -234,7 +234,7 @@ class TrackNotifier extends Notifier<TrackState> {
           }
 
           if (attempt < 3) {
-            await Future.delayed(const Duration(milliseconds: 500));
+            await Future<void>.delayed(const Duration(milliseconds: 500));
           }
         }
 
@@ -275,10 +275,12 @@ class TrackNotifier extends Notifier<TrackState> {
             state = TrackState(
               tracks: tracks,
               isLoading: false,
-              albumId: result['album']?['id'] as String?,
+              albumId:
+                  (result['album'] as Map<String, dynamic>?)?['id'] as String?,
               albumName:
                   result['name'] as String? ??
-                  result['album']?['name'] as String?,
+                  (result['album'] as Map<String, dynamic>?)?['name']
+                      as String?,
               playlistName: type == 'playlist'
                   ? result['name'] as String?
                   : null,
@@ -825,8 +827,7 @@ class TrackNotifier extends Notifier<TrackState> {
       isLoading: true,
       hasSearchText: state.hasSearchText,
       isShowingRecentAccess: state.isShowingRecentAccess,
-      selectedSearchFilter:
-          state.selectedSearchFilter,
+      selectedSearchFilter: state.selectedSearchFilter,
     );
 
     try {
@@ -921,8 +922,7 @@ class TrackNotifier extends Notifier<TrackState> {
       final tracks = List<Track>.from(state.tracks);
       tracks[index] = updatedTrack;
       state = state.copyWith(tracks: tracks);
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   void clear() {

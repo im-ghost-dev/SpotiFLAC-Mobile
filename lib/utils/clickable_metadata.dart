@@ -252,7 +252,7 @@ void _pushViaPreferredNavigator(BuildContext context, WidgetBuilder builder) {
       identical(currentNavigator, rootNavigator) && activeTabNavigator != null;
 
   if (!shouldRouteToTabNavigator) {
-    currentNavigator.push(MaterialPageRoute(builder: builder));
+    currentNavigator.push(MaterialPageRoute<void>(builder: builder));
     return;
   }
 
@@ -264,12 +264,12 @@ void _pushViaPreferredNavigator(BuildContext context, WidgetBuilder builder) {
     currentNavigator.pop();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!activeTabNavigator.mounted) return;
-      activeTabNavigator.push(MaterialPageRoute(builder: builder));
+      activeTabNavigator.push(MaterialPageRoute<void>(builder: builder));
     });
     return;
   }
 
-  activeTabNavigator.push(MaterialPageRoute(builder: builder));
+  activeTabNavigator.push(MaterialPageRoute<void>(builder: builder));
 }
 
 void _showLoadingSnackBar(BuildContext context, String message) {

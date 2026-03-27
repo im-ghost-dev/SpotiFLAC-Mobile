@@ -34,7 +34,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
     final prefs = await _prefs;
     final json = prefs.getString(_settingsKey);
     if (json != null) {
-      state = AppSettings.fromJson(jsonDecode(json));
+      state = AppSettings.fromJson(
+        Map<String, dynamic>.from(jsonDecode(json) as Map),
+      );
 
       await _runMigrations(prefs);
       await _normalizeIosDownloadDirectoryIfNeeded();
@@ -52,7 +54,9 @@ class SettingsNotifier extends Notifier<AppSettings> {
   void _syncLyricsSettingsToBackend() {
     if (!PlatformBridge.supportsCoreBackend) return;
 
-    PlatformBridge.setLyricsProviders(state.lyricsProviders).catchError((e) {
+    PlatformBridge.setLyricsProviders(state.lyricsProviders).catchError((
+      Object e,
+    ) {
       _log.w('Failed to sync lyrics providers to backend: $e');
     });
 
@@ -61,7 +65,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
       'include_romanization_netease': state.lyricsIncludeRomanizationNetease,
       'multi_person_word_by_word': state.lyricsMultiPersonWordByWord,
       'musixmatch_language': state.musixmatchLanguage,
-    }).catchError((e) {
+    }).catchError((Object e) {
       _log.w('Failed to sync lyrics fetch options to backend: $e');
     });
   }
@@ -73,7 +77,7 @@ class SettingsNotifier extends Notifier<AppSettings> {
     PlatformBridge.setNetworkCompatibilityOptions(
       allowHttp: compatibilityMode,
       insecureTls: compatibilityMode,
-    ).catchError((e) {
+    ).catchError((Object e) {
       _log.w('Failed to sync network compatibility options to backend: $e');
     });
   }

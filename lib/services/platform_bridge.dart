@@ -67,8 +67,8 @@ class PlatformBridge {
     if (response['success'] == true) {
       final service = response['service'] ?? payload.service;
       final filePath = response['file_path'] ?? '';
-      final bitDepth = response['actual_bit_depth'];
-      final sampleRate = response['actual_sample_rate'];
+      final bitDepth = response['actual_bit_depth'] as num?;
+      final sampleRate = response['actual_sample_rate'] as num?;
       final qualityStr = bitDepth != null && sampleRate != null
           ? ' ($bitDepth-bit/${(sampleRate / 1000).toStringAsFixed(1)}kHz)'
           : '';

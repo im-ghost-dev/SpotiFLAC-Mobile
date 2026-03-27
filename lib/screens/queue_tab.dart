@@ -656,8 +656,8 @@ final _queueFilteredAlbumsProvider =
     });
 
 Map<String, List<String>> _filterHistoryInIsolate(Map<String, Object> payload) {
-  final entries = (payload['entries'] as List).cast<List>();
-  final albumCounts = (payload['albumCounts'] as Map).cast<String, int>();
+  final entries = (payload['entries'] as List).cast<List<Object?>>();
+  final albumCounts = Map<String, int>.from(payload['albumCounts'] as Map);
   final query = (payload['query'] as String?) ?? '';
   final hasQuery = query.isNotEmpty;
 
@@ -1968,7 +1968,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     String? tempFormat = _filterFormat;
     String tempSortMode = _sortMode;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
@@ -2280,7 +2280,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     final beforeModTime = await _readFileModTimeMillis(historyItem.filePath);
     if (!mounted) return;
     final result = await navigator.push(
-      slidePageRoute(page: TrackMetadataScreen(item: historyItem)),
+      slidePageRoute<bool>(page: TrackMetadataScreen(item: historyItem)),
     );
     _searchFocusNode.unfocus();
     if (result == true) {
@@ -2306,7 +2306,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     final beforeModTime = await _readFileModTimeMillis(item.filePath);
     if (!mounted) return;
     final result = await navigator.push(
-      slidePageRoute(page: TrackMetadataScreen(item: item)),
+      slidePageRoute<bool>(page: TrackMetadataScreen(item: item)),
     );
     _searchFocusNode.unfocus();
     if (result == true) {
@@ -2327,7 +2327,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     _searchFocusNode.unfocus();
     Navigator.push(
       context,
-      slidePageRoute(page: TrackMetadataScreen(localItem: item)),
+      slidePageRoute<void>(page: TrackMetadataScreen(localItem: item)),
     ).then((_) => _searchFocusNode.unfocus());
   }
 
@@ -4711,7 +4711,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     _hideSelectionOverlay();
     _hidePlaylistSelectionOverlay();
 
-    await showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       shape: const RoundedRectangleBorder(

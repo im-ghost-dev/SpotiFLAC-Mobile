@@ -239,7 +239,9 @@ class _AudioAnalysisCardState extends State<AudioAnalysisCard> {
       final file = File('${dir.path}/$key.json');
       if (!await file.exists()) return null;
 
-      final json = jsonDecode(await file.readAsString());
+      final json = Map<String, dynamic>.from(
+        jsonDecode(await file.readAsString()) as Map,
+      );
       final cachedSize = json['fileSize'] as int;
 
       if (!filePath.startsWith('content://')) {

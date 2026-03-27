@@ -510,7 +510,7 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
         }
 
         if ((c + 1) % _safRepairBatchSize == 0) {
-          await Future.delayed(const Duration(milliseconds: 16));
+          await Future<void>.delayed(const Duration(milliseconds: 16));
         }
       }
 
@@ -762,7 +762,7 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
       _historyLog.d('Added new history entry: ${mergedItem.trackName}');
     }
 
-    _db.upsert(mergedItem.toJson()).catchError((e) {
+    _db.upsert(mergedItem.toJson()).catchError((Object e) {
       _historyLog.e('Failed to save to database: $e');
     });
   }
@@ -771,7 +771,7 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
     state = state.copyWith(
       items: state.items.where((item) => item.id != id).toList(),
     );
-    _db.deleteById(id).catchError((e) {
+    _db.deleteById(id).catchError((Object e) {
       _historyLog.e('Failed to delete from database: $e');
     });
   }
@@ -780,7 +780,7 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
     state = state.copyWith(
       items: state.items.where((item) => item.spotifyId != spotifyId).toList(),
     );
-    _db.deleteBySpotifyId(spotifyId).catchError((e) {
+    _db.deleteBySpotifyId(spotifyId).catchError((Object e) {
       _historyLog.e('Failed to delete from database: $e');
     });
     _historyLog.d('Removed item with spotifyId: $spotifyId');
@@ -1081,7 +1081,7 @@ class DownloadHistoryNotifier extends Notifier<DownloadHistoryState> {
 
   void clearHistory() {
     state = DownloadHistoryState();
-    _db.clearAll().catchError((e) {
+    _db.clearAll().catchError((Object e) {
       _historyLog.e('Failed to clear database: $e');
     });
   }
@@ -3602,7 +3602,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
         _log.d('Queue is paused, waiting for active downloads...');
         await Future.any([
           Future.wait(activeDownloads.values),
-          Future.delayed(_queueSchedulingInterval),
+          Future<void>.delayed(_queueSchedulingInterval),
         ]);
         continue;
       }
@@ -3647,10 +3647,10 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
       if (activeDownloads.isNotEmpty) {
         await Future.any([
           Future.any(activeDownloads.values),
-          Future.delayed(_queueSchedulingInterval),
+          Future<void>.delayed(_queueSchedulingInterval),
         ]);
       } else {
-        await Future.delayed(_queueSchedulingInterval);
+        await Future<void>.delayed(_queueSchedulingInterval);
       }
     }
 

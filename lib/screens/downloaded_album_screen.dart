@@ -309,7 +309,7 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
     if (!mounted) return;
 
     final result = await navigator.push(
-      slidePageRoute(page: TrackMetadataScreen(item: item)),
+      slidePageRoute<bool>(page: TrackMetadataScreen(item: item)),
     );
     await DownloadedEmbeddedCoverResolver.scheduleRefreshForPath(
       item.filePath,
@@ -932,7 +932,7 @@ class _DownloadedAlbumScreenState extends ConsumerState<DownloadedAlbumScreen> {
         ? '320k'
         : (selectedFormat == 'Opus' ? '128k' : '320k');
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       shape: const RoundedRectangleBorder(

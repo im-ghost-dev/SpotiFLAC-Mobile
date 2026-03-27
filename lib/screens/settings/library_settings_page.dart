@@ -255,7 +255,7 @@ class _LibrarySettingsPageState extends ConsumerState<LibrarySettingsPage> {
 
   void _showAutoScanPicker(BuildContext context, String current) {
     final colorScheme = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,

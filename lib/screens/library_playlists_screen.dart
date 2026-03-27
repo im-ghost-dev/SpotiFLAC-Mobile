@@ -119,7 +119,7 @@ class LibraryPlaylistsScreen extends ConsumerWidget {
                   ),
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(
+                      MaterialPageRoute<void>(
                         builder: (_) => LibraryTracksFolderScreen(
                           mode: LibraryTracksFolderMode.playlist,
                           playlistId: playlist.id,
@@ -149,7 +149,7 @@ class LibraryPlaylistsScreen extends ConsumerWidget {
   ) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,

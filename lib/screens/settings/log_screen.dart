@@ -92,7 +92,7 @@ class _LogScreenState extends State<LogScreen> {
   }
 
   void _clearLogs() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.logClearLogsTitle),

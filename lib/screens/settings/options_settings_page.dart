@@ -241,7 +241,7 @@ class OptionsSettingsPage extends ConsumerWidget {
     WidgetRef ref,
     ColorScheme colorScheme,
   ) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.dialogClearHistoryTitle),
@@ -273,7 +273,7 @@ class OptionsSettingsPage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(

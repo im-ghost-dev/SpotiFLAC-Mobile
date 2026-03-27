@@ -1180,7 +1180,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
         ? '320k'
         : (selectedFormat == 'Opus' ? '128k' : '320k');
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       shape: const RoundedRectangleBorder(

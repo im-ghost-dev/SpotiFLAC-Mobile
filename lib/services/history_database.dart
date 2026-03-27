@@ -224,7 +224,7 @@ class HistoryDatabase {
     }
 
     try {
-      final List<dynamic> jsonList = jsonDecode(jsonStr);
+      final jsonList = List<dynamic>.from(jsonDecode(jsonStr) as List);
       _log.i(
         'Migrating ${jsonList.length} items from SharedPreferences to SQLite',
       );
@@ -233,7 +233,7 @@ class HistoryDatabase {
       final batch = db.batch();
 
       for (final json in jsonList) {
-        final map = json as Map<String, dynamic>;
+        final map = Map<String, dynamic>.from(json as Map);
         batch.insert(
           'history',
           _jsonToDbRow(map),

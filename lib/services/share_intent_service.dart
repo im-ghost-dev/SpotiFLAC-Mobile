@@ -65,7 +65,7 @@ class ShareIntentService {
 
     _mediaSubscription = ReceiveSharingIntent.instance.getMediaStream().listen(
       _handleSharedMedia,
-      onError: (err) => _log.e('Error: $err'),
+      onError: (Object err) => _log.e('Error: $err'),
     );
 
     final initialMedia = await ReceiveSharingIntent.instance.getInitialMedia();

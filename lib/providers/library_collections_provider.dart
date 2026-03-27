@@ -118,7 +118,7 @@ class UserPlaylistCollection {
       createdAt: createdAt,
       updatedAt: updatedAt,
       tracks: tracksRaw
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map(
             (e) => CollectionTrackEntry.fromJson(Map<String, dynamic>.from(e)),
           )
@@ -233,19 +233,19 @@ class LibraryCollectionsState {
 
     return LibraryCollectionsState(
       wishlist: wishlistRaw
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map(
             (e) => CollectionTrackEntry.fromJson(Map<String, dynamic>.from(e)),
           )
           .toList(growable: false),
       loved: lovedRaw
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map(
             (e) => CollectionTrackEntry.fromJson(Map<String, dynamic>.from(e)),
           )
           .toList(growable: false),
       playlists: playlistsRaw
-          .whereType<Map>()
+          .whereType<Map<Object?, Object?>>()
           .map(
             (e) =>
                 UserPlaylistCollection.fromJson(Map<String, dynamic>.from(e)),

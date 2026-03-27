@@ -110,7 +110,7 @@ class DownloadServicePicker extends ConsumerStatefulWidget {
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,

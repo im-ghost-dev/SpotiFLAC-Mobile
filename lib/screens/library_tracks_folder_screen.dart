@@ -847,7 +847,7 @@ class _LibraryTracksFolderScreenState
 
   void _confirmDownloadAll(List<Track> tracks) {
     if (tracks.isEmpty) return;
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         final colorScheme = Theme.of(dialogContext).colorScheme;
@@ -980,7 +980,7 @@ class _LibraryTracksFolderScreenState
   void _showCoverOptionsSheet(BuildContext context, bool hasCustomCover) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1338,7 +1338,7 @@ class _CollectionTrackTile extends ConsumerWidget {
     final showAddToPlaylist =
         mode != LibraryTracksFolderMode.wishlist || isDownloaded;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -1523,9 +1523,9 @@ class _CollectionTrackTile extends ConsumerWidget {
     );
 
     if (historyItem != null) {
-      await Navigator.of(
-        context,
-      ).push(slidePageRoute(page: TrackMetadataScreen(item: historyItem)));
+      await Navigator.of(context).push(
+        slidePageRoute<void>(page: TrackMetadataScreen(item: historyItem)),
+      );
       return;
     }
 
@@ -1540,9 +1540,9 @@ class _CollectionTrackTile extends ConsumerWidget {
     localItem ??= localState.findByTrackAndArtist(track.name, track.artistName);
 
     if (localItem != null) {
-      await Navigator.of(
-        context,
-      ).push(slidePageRoute(page: TrackMetadataScreen(localItem: localItem)));
+      await Navigator.of(context).push(
+        slidePageRoute<void>(page: TrackMetadataScreen(localItem: localItem)),
+      );
       return;
     }
 

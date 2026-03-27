@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:spotiflac_android/l10n/l10n.dart';
+import 'package:spotiflac_android/models/settings.dart';
 import 'package:spotiflac_android/providers/extension_provider.dart';
 import 'package:spotiflac_android/providers/explore_provider.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
@@ -212,7 +213,7 @@ class _ExtensionsPageState extends ConsumerState<ExtensionsPage> {
                       showDivider: index < extState.extensions.length - 1,
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
+                        MaterialPageRoute<void>(
                           builder: (_) =>
                               ExtensionDetailPage(extensionId: ext.id),
                         ),
@@ -469,7 +470,9 @@ class _DownloadPriorityItem extends ConsumerWidget {
       onTap: hasDownloadExtensions
           ? () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ProviderPriorityPage()),
+              MaterialPageRoute<void>(
+                builder: (_) => const ProviderPriorityPage(),
+              ),
             )
           : null,
       child: Padding(
@@ -534,7 +537,7 @@ class _MetadataPriorityItem extends ConsumerWidget {
       onTap: hasMetadataExtensions
           ? () => Navigator.push(
               context,
-              MaterialPageRoute(
+              MaterialPageRoute<void>(
                 builder: (_) => const MetadataProviderPriorityPage(),
               ),
             )
@@ -678,12 +681,12 @@ class _SearchProviderSelector extends ConsumerWidget {
   void _showSearchProviderPicker(
     BuildContext context,
     WidgetRef ref,
-    dynamic settings,
+    AppSettings settings,
     List<Extension> searchProviders,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
@@ -859,12 +862,12 @@ class _HomeFeedProviderSelector extends ConsumerWidget {
   void _showHomeFeedProviderPicker(
     BuildContext context,
     WidgetRef ref,
-    dynamic settings,
+    AppSettings settings,
     List<Extension> homeFeedProviders,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       backgroundColor: colorScheme.surfaceContainerHigh,
