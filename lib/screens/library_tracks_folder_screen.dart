@@ -9,6 +9,7 @@ import 'package:spotiflac_android/l10n/l10n.dart';
 import 'package:spotiflac_android/models/track.dart';
 import 'package:spotiflac_android/providers/download_queue_provider.dart';
 import 'package:spotiflac_android/providers/library_collections_provider.dart';
+import 'package:spotiflac_android/providers/playback_provider.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
@@ -1236,15 +1237,24 @@ class _CollectionTrackTile extends ConsumerWidget {
           ),
           trailing: isSelectionMode
               ? null
-              : IconButton(
-                  tooltip: MaterialLocalizations.of(context).showMenuTooltip,
-                  icon: Icon(
-                    Icons.more_vert,
-                    color: colorScheme.onSurfaceVariant,
-                    size: 20,
-                  ),
-                  onPressed: () => _showTrackOptionsSheet(context, ref),
-                ),
+              : historyItem != null || localItem != null
+                  ? IconButton(
+                      tooltip: context.l10n.tooltipPlay,
+                      onPressed: () {
+                        ref
+                            .read(playbackProvider.notifier)
+                            .playTrackList([track]);
+                      },
+                      icon: Icon(
+                        Icons.play_arrow,
+                        color: colorScheme.primary,
+                      ),
+                      style: IconButton.styleFrom(
+                        backgroundColor: colorScheme.primaryContainer
+                            .withValues(alpha: 0.3),
+                      ),
+                    )
+                  : null,
           onTap: isSelectionMode
               ? onTap
               : () {
