@@ -3802,6 +3802,7 @@ class DownloadQueueNotifier extends Notifier<DownloadQueueState> {
       );
 
       var quality = item.qualityOverride ?? state.audioQuality;
+      if (quality == 'DEFAULT') quality = state.audioQuality;
       final isSafMode = _isSafMode(settings);
       final relativeOutputDir = isSafMode
           ? await _buildRelativeOutputDir(

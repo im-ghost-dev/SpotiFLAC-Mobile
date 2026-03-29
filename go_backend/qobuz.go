@@ -2259,7 +2259,7 @@ func downloadFromQobuz(req DownloadRequest) (QobuzDownloadResult, error) {
 		qobuzQuality = "6"
 	case "HI_RES":
 		qobuzQuality = "7"
-	case "HI_RES_LOSSLESS":
+	case "HI_RES_LOSSLESS", "", "DEFAULT":
 		qobuzQuality = "27"
 	}
 	GoLog("[Qobuz] Using quality: %s (mapped from %s)\n", qobuzQuality, req.Quality)

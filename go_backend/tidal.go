@@ -2212,7 +2212,7 @@ func downloadFromTidal(req DownloadRequest) (TidalDownloadResult, error) {
 	}
 
 	quality := req.Quality
-	if quality == "" {
+	if quality == "" || quality == "DEFAULT" {
 		quality = "LOSSLESS"
 	}
 
