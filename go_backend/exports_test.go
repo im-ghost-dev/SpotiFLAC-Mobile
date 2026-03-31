@@ -193,13 +193,15 @@ func TestBuildReEnrichFFmpegMetadataOmitsEmptyFields(t *testing.T) {
 		Copyright:   "",
 	}
 
-	metadata := buildReEnrichFFmpegMetadata(req, "")
+	metadata := buildReEnrichFFmpegMetadata(&req, "")
 
-	if metadata["TITLE"] != "Song" {
-		t.Fatalf("title = %q", metadata["TITLE"])
+	// Title and Artist are never written by re-enrich (they are search keys
+	// preserved as-is from the file).
+	if _, exists := metadata["TITLE"]; exists {
+		t.Fatalf("TITLE should not be in metadata: %#v", metadata)
 	}
-	if metadata["ARTIST"] != "Artist" {
-		t.Fatalf("artist = %q", metadata["ARTIST"])
+	if _, exists := metadata["ARTIST"]; exists {
+		t.Fatalf("ARTIST should not be in metadata: %#v", metadata)
 	}
 	if metadata["ALBUM"] != "Album" {
 		t.Fatalf("album = %q", metadata["ALBUM"])

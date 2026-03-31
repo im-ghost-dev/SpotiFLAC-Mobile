@@ -28,6 +28,7 @@ import 'package:spotiflac_android/services/history_database.dart';
 import 'package:spotiflac_android/services/downloaded_embedded_cover_resolver.dart';
 import 'package:spotiflac_android/screens/track_metadata_screen.dart';
 import 'package:spotiflac_android/screens/downloaded_album_screen.dart';
+import 'package:spotiflac_android/widgets/re_enrich_field_dialog.dart';
 import 'package:spotiflac_android/widgets/batch_progress_dialog.dart';
 import 'package:spotiflac_android/screens/library_tracks_folder_screen.dart';
 import 'package:spotiflac_android/screens/local_album_screen.dart';
@@ -4913,12 +4914,14 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         mp3Path: ffmpegTarget,
         coverPath: effectiveCoverPath,
         metadata: metadata,
+        preserveMetadata: true,
       );
     } else if (isM4A) {
       ffmpegResult = await FFmpegService.embedMetadataToM4a(
         m4aPath: ffmpegTarget,
         coverPath: effectiveCoverPath,
         metadata: metadata,
+        preserveMetadata: true,
       );
     } else if (isOpus) {
       ffmpegResult = await FFmpegService.embedMetadataToOpus(
@@ -4926,6 +4929,7 @@ class _QueueTabState extends ConsumerState<QueueTab> {
         coverPath: effectiveCoverPath,
         metadata: metadata,
         artistTagMode: artistTagMode,
+        preserveMetadata: true,
       );
     }
 
@@ -4958,7 +4962,10 @@ class _QueueTabState extends ConsumerState<QueueTab> {
     return ffmpegResult != null;
   }
 
-  Future<bool> _reEnrichQueueLocalTrack(LocalLibraryItem item) async {
+  Future<bool> _reEnrichQueueLocalTrack(
+    LocalLibraryItem item, {
+    List<String>? updateFields,
+  }) async {
     final durationMs = (item.duration ?? 0) * 1000;
     final artistTagMode = ref.read(settingsProvider).artistTagMode;
     final request = <String, dynamic>{
@@ -4981,6 +4988,8 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       'copyright': '',
       'duration_ms': durationMs,
       'search_online': true,
+      // ignore: use_null_aware_elements
+      if (updateFields != null) 'update_fields': updateFields,
     };
 
     final result = await PlatformBridge.reEnrichFile(request);
@@ -5144,30 +5153,24 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(context.l10n.trackReEnrich),
-        content: Text(
-          '${context.l10n.trackReEnrichOnlineSubtitle}\n\n'
-          '${context.l10n.downloadedAlbumSelectedCount(selectedLocalItems.length)}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(context.l10n.dialogCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(context.l10n.trackReEnrich),
-          ),
-        ],
-      ),
+    // Hide the selection overlay: set the flag (prevents build() from
+    // re-inserting via postFrameCallback) and remove the entry immediately.
+    setState(() => _isSelectionMode = false);
+    _hideSelectionOverlay();
+
+    final selection = await showReEnrichFieldDialog(
+      context,
+      selectedCount: selectedLocalItems.length,
     );
 
-    if (confirmed != true || !mounted) {
+    if (selection == null || !mounted) {
+      // Cancelled — restore selection mode; the next build cycle will
+      // re-create the overlay via _syncSelectionOverlay in postFrameCallback.
+      if (mounted) setState(() => _isSelectionMode = true);
       return;
     }
+
+    final updateFields = selection.isAll ? null : selection.fields;
 
     var successCount = 0;
     final total = selectedLocalItems.length;
@@ -5194,7 +5197,10 @@ class _QueueTabState extends ConsumerState<QueueTab> {
       );
 
       try {
-        final ok = await _reEnrichQueueLocalTrack(item);
+        final ok = await _reEnrichQueueLocalTrack(
+          item,
+          updateFields: updateFields,
+        );
         if (ok) {
           successCount++;
         }

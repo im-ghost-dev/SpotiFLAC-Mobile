@@ -16,7 +16,6 @@ import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/screens/track_metadata_screen.dart';
 import 'package:spotiflac_android/widgets/download_service_picker.dart';
-import 'package:spotiflac_android/widgets/bottom_sheet_option_tile.dart';
 import 'package:spotiflac_android/widgets/playlist_picker_sheet.dart';
 import 'package:spotiflac_android/widgets/animation_utils.dart';
 
@@ -1238,23 +1237,19 @@ class _CollectionTrackTile extends ConsumerWidget {
           trailing: isSelectionMode
               ? null
               : historyItem != null || localItem != null
-                  ? IconButton(
-                      tooltip: context.l10n.tooltipPlay,
-                      onPressed: () {
-                        ref
-                            .read(playbackProvider.notifier)
-                            .playTrackList([track]);
-                      },
-                      icon: Icon(
-                        Icons.play_arrow,
-                        color: colorScheme.primary,
-                      ),
-                      style: IconButton.styleFrom(
-                        backgroundColor: colorScheme.primaryContainer
-                            .withValues(alpha: 0.3),
-                      ),
-                    )
-                  : null,
+              ? IconButton(
+                  tooltip: context.l10n.tooltipPlay,
+                  onPressed: () {
+                    ref.read(playbackProvider.notifier).playTrackList([track]);
+                  },
+                  icon: Icon(Icons.play_arrow, color: colorScheme.primary),
+                  style: IconButton.styleFrom(
+                    backgroundColor: colorScheme.primaryContainer.withValues(
+                      alpha: 0.3,
+                    ),
+                  ),
+                )
+              : null,
           onTap: isSelectionMode
               ? onTap
               : () {
@@ -1330,155 +1325,6 @@ class _CollectionTrackTile extends ConsumerWidget {
         color: colorScheme.surfaceContainerHighest,
         child: Icon(Icons.music_note, color: colorScheme.onSurfaceVariant),
       ),
-    );
-  }
-
-  void _showTrackOptionsSheet(BuildContext context, WidgetRef ref) {
-    final track = entry.track;
-    final effectiveCoverUrl = _resolveCoverUrl(track);
-    final colorScheme = Theme.of(context).colorScheme;
-    final historyState = ref.read(downloadHistoryProvider);
-    final isDownloaded =
-        historyState.isDownloaded(track.id) ||
-        (track.isrc != null &&
-            track.isrc!.isNotEmpty &&
-            historyState.getByIsrc(track.isrc!) != null) ||
-        historyState.findByTrackAndArtist(track.name, track.artistName) != null;
-    // Wishlist: only show "Add to Playlist" if track is already downloaded
-    final showAddToPlaylist =
-        mode != LibraryTracksFolderMode.wishlist || isDownloaded;
-
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: colorScheme.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Column(
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child:
-                            effectiveCoverUrl != null &&
-                                effectiveCoverUrl.isNotEmpty
-                            ? _buildTrackCover(context, effectiveCoverUrl, 56)
-                            : Container(
-                                width: 56,
-                                height: 56,
-                                color: colorScheme.surfaceContainerHighest,
-                                child: Icon(
-                                  Icons.music_note,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              track.name,
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              track.artistName,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            Divider(
-              height: 1,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-
-            if (showAddToPlaylist)
-              BottomSheetOptionTile(
-                icon: Icons.playlist_add,
-                title: context.l10n.collectionAddToPlaylist,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  showAddTrackToPlaylistSheet(context, ref, track);
-                },
-              ),
-
-            BottomSheetOptionTile(
-              icon: Icons.remove_circle_outline,
-              iconColor: colorScheme.error,
-              title: mode == LibraryTracksFolderMode.playlist
-                  ? context.l10n.collectionRemoveFromPlaylist
-                  : context.l10n.collectionRemoveFromFolder,
-              onTap: () {
-                Navigator.pop(sheetContext);
-                _removeFromCurrentFolder(context, ref);
-              },
-            ),
-
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _removeFromCurrentFolder(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
-    final notifier = ref.read(libraryCollectionsProvider.notifier);
-    final key = entry.key;
-
-    switch (mode) {
-      case LibraryTracksFolderMode.wishlist:
-        await notifier.removeFromWishlist(key);
-        break;
-      case LibraryTracksFolderMode.loved:
-        await notifier.removeFromLoved(key);
-        break;
-      case LibraryTracksFolderMode.playlist:
-        if (playlistId != null) {
-          await notifier.removeTrackFromPlaylist(playlistId!, key);
-        }
-        break;
-    }
-
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.collectionRemoved(entry.track.name))),
     );
   }
 

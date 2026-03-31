@@ -967,6 +967,7 @@ class FFmpegService {
     required String mp3Path,
     String? coverPath,
     Map<String, String>? metadata,
+    bool preserveMetadata = false,
   }) async {
     final tempDir = await getTemporaryDirectory();
     final tempOutput = _nextTempEmbedPath(tempDir.path, '.mp3');
@@ -979,7 +980,9 @@ class FFmpegService {
     }
 
     cmdBuffer.write('-map 0:a ');
-    cmdBuffer.write('-map_metadata -1 ');
+    cmdBuffer.write(
+      preserveMetadata ? '-map_metadata 0 ' : '-map_metadata -1 ',
+    );
 
     if (coverPath != null) {
       cmdBuffer.write('-map 1:0 ');
@@ -1050,18 +1053,20 @@ class FFmpegService {
     String? coverPath,
     Map<String, String>? metadata,
     String artistTagMode = artistTagModeJoined,
+    bool preserveMetadata = false,
   }) async {
     final tempDir = await getTemporaryDirectory();
     final tempOutput = _nextTempEmbedPath(tempDir.path, '.opus');
+    final mapMetaValue = preserveMetadata ? '0' : '-1';
     final arguments = <String>[
       '-i',
       opusPath,
       '-map',
       '0:a',
       '-map_metadata',
-      '-1',
+      mapMetaValue,
       '-map_metadata:s:a',
-      '-1',
+      mapMetaValue,
       '-c:a',
       'copy',
     ];
@@ -1140,6 +1145,7 @@ class FFmpegService {
     required String m4aPath,
     String? coverPath,
     Map<String, String>? metadata,
+    bool preserveMetadata = false,
   }) async {
     final tempDir = await getTemporaryDirectory();
     final tempOutput = _nextTempEmbedPath(tempDir.path, '.m4a');
@@ -1153,7 +1159,9 @@ class FFmpegService {
     }
 
     cmdBuffer.write('-map 0:a ');
-    cmdBuffer.write('-map_metadata -1 ');
+    cmdBuffer.write(
+      preserveMetadata ? '-map_metadata 0 ' : '-map_metadata -1 ',
+    );
 
     // For M4A/MP4, cover art is mapped as a video stream and stored in the
     // 'covr' atom automatically by FFmpeg. The '-disposition attached_pic'

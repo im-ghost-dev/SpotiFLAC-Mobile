@@ -118,25 +118,40 @@ type DownloadResult struct {
 }
 
 type reEnrichRequest struct {
-	FilePath      string `json:"file_path"`
-	CoverURL      string `json:"cover_url"`
-	MaxQuality    bool   `json:"max_quality"`
-	EmbedLyrics   bool   `json:"embed_lyrics"`
-	ArtistTagMode string `json:"artist_tag_mode,omitempty"`
-	SpotifyID     string `json:"spotify_id"`
-	TrackName     string `json:"track_name"`
-	ArtistName    string `json:"artist_name"`
-	AlbumName     string `json:"album_name"`
-	AlbumArtist   string `json:"album_artist"`
-	TrackNumber   int    `json:"track_number"`
-	DiscNumber    int    `json:"disc_number"`
-	ReleaseDate   string `json:"release_date"`
-	ISRC          string `json:"isrc"`
-	Genre         string `json:"genre"`
-	Label         string `json:"label"`
-	Copyright     string `json:"copyright"`
-	DurationMs    int64  `json:"duration_ms"`
-	SearchOnline  bool   `json:"search_online"`
+	FilePath      string   `json:"file_path"`
+	CoverURL      string   `json:"cover_url"`
+	MaxQuality    bool     `json:"max_quality"`
+	EmbedLyrics   bool     `json:"embed_lyrics"`
+	ArtistTagMode string   `json:"artist_tag_mode,omitempty"`
+	SpotifyID     string   `json:"spotify_id"`
+	TrackName     string   `json:"track_name"`
+	ArtistName    string   `json:"artist_name"`
+	AlbumName     string   `json:"album_name"`
+	AlbumArtist   string   `json:"album_artist"`
+	TrackNumber   int      `json:"track_number"`
+	DiscNumber    int      `json:"disc_number"`
+	ReleaseDate   string   `json:"release_date"`
+	ISRC          string   `json:"isrc"`
+	Genre         string   `json:"genre"`
+	Label         string   `json:"label"`
+	Copyright     string   `json:"copyright"`
+	DurationMs    int64    `json:"duration_ms"`
+	SearchOnline  bool     `json:"search_online"`
+	UpdateFields  []string `json:"update_fields,omitempty"`
+}
+
+// shouldUpdateField returns true if the given field group should be updated.
+// When UpdateFields is empty/nil, all fields are updated (backward compatible).
+func (r *reEnrichRequest) shouldUpdateField(field string) bool {
+	if len(r.UpdateFields) == 0 {
+		return true
+	}
+	for _, f := range r.UpdateFields {
+		if f == field {
+			return true
+		}
+	}
+	return false
 }
 
 func applyReEnrichTrackMetadata(req *reEnrichRequest, track ExtTrackMetadata) {
@@ -156,38 +171,52 @@ func applyReEnrichTrackMetadata(req *reEnrichRequest, track ExtTrackMetadata) {
 		req.SpotifyID = track.ID
 	}
 
-	if track.AlbumName != "" {
-		req.AlbumName = track.AlbumName
+	if req.shouldUpdateField("basic_tags") {
+		// Title and Artist are not overwritten — they are used for search matching
+		// and should remain as the user's original values.
 	}
-	if track.AlbumArtist != "" {
-		req.AlbumArtist = track.AlbumArtist
+	if req.shouldUpdateField("basic_tags") {
+		if track.AlbumName != "" {
+			req.AlbumName = track.AlbumName
+		}
+		if track.AlbumArtist != "" {
+			req.AlbumArtist = track.AlbumArtist
+		}
 	}
-	if track.TrackNumber > 0 {
-		req.TrackNumber = track.TrackNumber
+	if req.shouldUpdateField("track_info") {
+		if track.TrackNumber > 0 {
+			req.TrackNumber = track.TrackNumber
+		}
+		if track.DiscNumber > 0 {
+			req.DiscNumber = track.DiscNumber
+		}
 	}
-	if track.DiscNumber > 0 {
-		req.DiscNumber = track.DiscNumber
+	if req.shouldUpdateField("release_info") {
+		if track.ReleaseDate != "" {
+			req.ReleaseDate = track.ReleaseDate
+		}
+		if track.ISRC != "" {
+			req.ISRC = track.ISRC
+		}
 	}
-	if track.ReleaseDate != "" {
-		req.ReleaseDate = track.ReleaseDate
-	}
-	if track.ISRC != "" {
-		req.ISRC = track.ISRC
-	}
-	if coverURL := track.ResolvedCoverURL(); coverURL != "" {
-		req.CoverURL = coverURL
+	if req.shouldUpdateField("cover") {
+		if coverURL := track.ResolvedCoverURL(); coverURL != "" {
+			req.CoverURL = coverURL
+		}
 	}
 	if track.DurationMS > 0 {
 		req.DurationMs = int64(track.DurationMS)
 	}
-	if track.Genre != "" {
-		req.Genre = track.Genre
-	}
-	if track.Label != "" {
-		req.Label = track.Label
-	}
-	if track.Copyright != "" {
-		req.Copyright = track.Copyright
+	if req.shouldUpdateField("extra") {
+		if track.Genre != "" {
+			req.Genre = track.Genre
+		}
+		if track.Label != "" {
+			req.Label = track.Label
+		}
+		if track.Copyright != "" {
+			req.Copyright = track.Copyright
+		}
 	}
 }
 
@@ -203,44 +232,48 @@ func reEnrichDownloadRequest(req reEnrichRequest) DownloadRequest {
 	}
 }
 
-func buildReEnrichFFmpegMetadata(req reEnrichRequest, lyricsLRC string) map[string]string {
+func buildReEnrichFFmpegMetadata(req *reEnrichRequest, lyricsLRC string) map[string]string {
 	metadata := map[string]string{}
-	if req.TrackName != "" {
-		metadata["TITLE"] = req.TrackName
+	if req.shouldUpdateField("basic_tags") {
+		if req.AlbumName != "" {
+			metadata["ALBUM"] = req.AlbumName
+		}
+		if req.AlbumArtist != "" {
+			metadata["ALBUMARTIST"] = req.AlbumArtist
+		}
 	}
-	if req.ArtistName != "" {
-		metadata["ARTIST"] = req.ArtistName
+	if req.shouldUpdateField("release_info") {
+		if req.ReleaseDate != "" {
+			metadata["DATE"] = req.ReleaseDate
+		}
+		if req.ISRC != "" {
+			metadata["ISRC"] = req.ISRC
+		}
 	}
-	if req.AlbumName != "" {
-		metadata["ALBUM"] = req.AlbumName
+	if req.shouldUpdateField("extra") {
+		if req.Genre != "" {
+			metadata["GENRE"] = req.Genre
+		}
+		if req.Label != "" {
+			metadata["ORGANIZATION"] = req.Label
+		}
+		if req.Copyright != "" {
+			metadata["COPYRIGHT"] = req.Copyright
+		}
 	}
-	if req.AlbumArtist != "" {
-		metadata["ALBUMARTIST"] = req.AlbumArtist
+	if req.shouldUpdateField("track_info") {
+		if req.TrackNumber > 0 {
+			metadata["TRACKNUMBER"] = fmt.Sprintf("%d", req.TrackNumber)
+		}
+		if req.DiscNumber > 0 {
+			metadata["DISCNUMBER"] = fmt.Sprintf("%d", req.DiscNumber)
+		}
 	}
-	if req.ReleaseDate != "" {
-		metadata["DATE"] = req.ReleaseDate
-	}
-	if req.ISRC != "" {
-		metadata["ISRC"] = req.ISRC
-	}
-	if req.Genre != "" {
-		metadata["GENRE"] = req.Genre
-	}
-	if req.TrackNumber > 0 {
-		metadata["TRACKNUMBER"] = fmt.Sprintf("%d", req.TrackNumber)
-	}
-	if req.DiscNumber > 0 {
-		metadata["DISCNUMBER"] = fmt.Sprintf("%d", req.DiscNumber)
-	}
-	if req.Label != "" {
-		metadata["ORGANIZATION"] = req.Label
-	}
-	if req.Copyright != "" {
-		metadata["COPYRIGHT"] = req.Copyright
-	}
-	if lyricsLRC != "" {
-		metadata["LYRICS"] = lyricsLRC
-		metadata["UNSYNCEDLYRICS"] = lyricsLRC
+	if req.shouldUpdateField("lyrics") {
+		if lyricsLRC != "" {
+			metadata["LYRICS"] = lyricsLRC
+			metadata["UNSYNCEDLYRICS"] = lyricsLRC
+		}
 	}
 	return metadata
 }
@@ -2102,7 +2135,7 @@ func ReEnrichFile(requestJSON string) (string, error) {
 		}
 
 		// Try to get extended metadata from Deezer if not already set
-		if found && req.ISRC != "" && (req.Genre == "" || req.Label == "" || req.Copyright == "") {
+		if found && req.ISRC != "" && req.shouldUpdateField("extra") && (req.Genre == "" || req.Label == "" || req.Copyright == "") {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			extMeta, err := deezerClient.GetExtendedMetadataByISRC(ctx, req.ISRC)
 			cancel()
@@ -2136,7 +2169,7 @@ func ReEnrichFile(requestJSON string) (string, error) {
 	// Download cover art to temp file
 	var coverTempPath string
 	var coverDataBytes []byte
-	if req.CoverURL != "" {
+	if req.CoverURL != "" && req.shouldUpdateField("cover") {
 		coverData, err := downloadCoverToMemory(req.CoverURL, req.MaxQuality)
 		if err != nil {
 			GoLog("[ReEnrich] Failed to download cover: %v\n", err)
@@ -2186,14 +2219,16 @@ func ReEnrichFile(requestJSON string) (string, error) {
 
 	// Preserve existing lyrics when online enrichment does not return a replacement.
 	var lyricsLRC string
-	existingLyrics, existingLyricsErr := ExtractLyrics(req.FilePath)
-	if existingLyricsErr == nil && strings.TrimSpace(existingLyrics) != "" {
-		lyricsLRC = existingLyrics
-		GoLog("[ReEnrich] Preserving existing embedded/sidecar lyrics\n")
+	if req.shouldUpdateField("lyrics") {
+		existingLyrics, existingLyricsErr := ExtractLyrics(req.FilePath)
+		if existingLyricsErr == nil && strings.TrimSpace(existingLyrics) != "" {
+			lyricsLRC = existingLyrics
+			GoLog("[ReEnrich] Preserving existing embedded/sidecar lyrics\n")
+		}
 	}
 
 	// Fetch lyrics
-	if req.EmbedLyrics {
+	if req.EmbedLyrics && req.shouldUpdateField("lyrics") {
 		client := NewLyricsClient()
 		durationSec := float64(req.DurationMs) / 1000.0
 		lyrics, err := client.FetchLyricsAllSources(req.SpotifyID, req.TrackName, req.ArtistName, durationSec)
@@ -2207,39 +2242,61 @@ func ReEnrichFile(requestJSON string) (string, error) {
 		}
 	}
 
+	// Build enrichedMeta map: only include fields from selected update groups
+	// so that the caller (Dart) does not overwrite non-selected metadata in its
+	// local library database with potentially stale cached values.
 	enrichedMeta := map[string]interface{}{
-		"track_name":   req.TrackName,
-		"artist_name":  req.ArtistName,
-		"album_name":   req.AlbumName,
-		"album_artist": req.AlbumArtist,
-		"release_date": req.ReleaseDate,
-		"track_number": req.TrackNumber,
-		"disc_number":  req.DiscNumber,
-		"isrc":         req.ISRC,
-		"genre":        req.Genre,
-		"label":        req.Label,
-		"copyright":    req.Copyright,
-		"cover_url":    req.CoverURL,
-		"spotify_id":   req.SpotifyID,
-		"duration_ms":  req.DurationMs,
+		"spotify_id":  req.SpotifyID,
+		"duration_ms": req.DurationMs,
+	}
+	if req.shouldUpdateField("basic_tags") {
+		enrichedMeta["album_name"] = req.AlbumName
+		enrichedMeta["album_artist"] = req.AlbumArtist
+	}
+	if req.shouldUpdateField("track_info") {
+		enrichedMeta["track_number"] = req.TrackNumber
+		enrichedMeta["disc_number"] = req.DiscNumber
+	}
+	if req.shouldUpdateField("release_info") {
+		enrichedMeta["release_date"] = req.ReleaseDate
+		enrichedMeta["isrc"] = req.ISRC
+	}
+	if req.shouldUpdateField("cover") {
+		enrichedMeta["cover_url"] = req.CoverURL
+	}
+	if req.shouldUpdateField("extra") {
+		enrichedMeta["genre"] = req.Genre
+		enrichedMeta["label"] = req.Label
+		enrichedMeta["copyright"] = req.Copyright
 	}
 
 	if isFlac {
-		// Native Go FLAC metadata embedding
+		// Native Go FLAC metadata embedding.
+		// Only populate Metadata fields for selected update groups; empty/zero
+		// values cause EmbedMetadata's setComment() to skip those tags,
+		// preserving whatever is already in the file.
 		metadata := Metadata{
-			Title:         req.TrackName,
-			Artist:        req.ArtistName,
-			Album:         req.AlbumName,
-			AlbumArtist:   req.AlbumArtist,
 			ArtistTagMode: req.ArtistTagMode,
-			Date:          req.ReleaseDate,
-			TrackNumber:   req.TrackNumber,
-			DiscNumber:    req.DiscNumber,
-			ISRC:          req.ISRC,
-			Genre:         req.Genre,
-			Label:         req.Label,
-			Copyright:     req.Copyright,
-			Lyrics:        lyricsLRC,
+		}
+		if req.shouldUpdateField("basic_tags") {
+			metadata.Album = req.AlbumName
+			metadata.AlbumArtist = req.AlbumArtist
+		}
+		if req.shouldUpdateField("track_info") {
+			metadata.TrackNumber = req.TrackNumber
+			metadata.DiscNumber = req.DiscNumber
+		}
+		if req.shouldUpdateField("release_info") {
+			metadata.Date = req.ReleaseDate
+			metadata.ISRC = req.ISRC
+		}
+		if req.shouldUpdateField("lyrics") {
+			metadata.Lyrics = lyricsLRC
+		}
+		if req.shouldUpdateField("extra") {
+			metadata.Genre = req.Genre
+			metadata.Label = req.Label
+			metadata.Copyright = req.Copyright
 		}
 
 		if len(coverDataBytes) > 0 {
@@ -2275,7 +2332,7 @@ func ReEnrichFile(requestJSON string) (string, error) {
 
 	// Don't cleanup cover temp — Dart needs it for FFmpeg embed
 	cleanupCover = false
-	ffmpegMetadata := buildReEnrichFFmpegMetadata(req, lyricsLRC)
+	ffmpegMetadata := buildReEnrichFFmpegMetadata(&req, lyricsLRC)
 
 	result := map[string]interface{}{
 		"method":            "ffmpeg",

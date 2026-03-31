@@ -329,6 +329,8 @@ class _MainShellState extends ConsumerState<MainShell>
       return;
     }
 
+    if (!mounted) return;
+
     final trackState = ref.read(trackProvider);
 
     final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;

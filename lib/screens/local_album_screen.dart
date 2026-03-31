@@ -14,6 +14,7 @@ import 'package:spotiflac_android/services/library_database.dart';
 import 'package:spotiflac_android/services/ffmpeg_service.dart';
 import 'package:spotiflac_android/services/local_track_redownload_service.dart';
 import 'package:spotiflac_android/widgets/batch_progress_dialog.dart';
+import 'package:spotiflac_android/widgets/re_enrich_field_dialog.dart';
 import 'package:spotiflac_android/services/platform_bridge.dart';
 import 'package:spotiflac_android/providers/local_library_provider.dart';
 import 'package:spotiflac_android/providers/playback_provider.dart';
@@ -824,12 +825,14 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
         mp3Path: ffmpegTarget,
         coverPath: effectiveCoverPath,
         metadata: metadata,
+        preserveMetadata: true,
       );
     } else if (isM4A) {
       ffmpegResult = await FFmpegService.embedMetadataToM4a(
         m4aPath: ffmpegTarget,
         coverPath: effectiveCoverPath,
         metadata: metadata,
+        preserveMetadata: true,
       );
     } else if (isOpus) {
       ffmpegResult = await FFmpegService.embedMetadataToOpus(
@@ -837,6 +840,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
         coverPath: effectiveCoverPath,
         metadata: metadata,
         artistTagMode: artistTagMode,
+        preserveMetadata: true,
       );
     }
 
@@ -867,7 +871,10 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
     return ffmpegResult != null;
   }
 
-  Future<bool> _reEnrichLocalTrack(LocalLibraryItem item) async {
+  Future<bool> _reEnrichLocalTrack(
+    LocalLibraryItem item, {
+    List<String>? updateFields,
+  }) async {
     final durationMs = (item.duration ?? 0) * 1000;
     final artistTagMode = ref.read(settingsProvider).artistTagMode;
     final request = <String, dynamic>{
@@ -890,6 +897,8 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
       'copyright': '',
       'duration_ms': durationMs,
       'search_online': true,
+      // ignore: use_null_aware_elements
+      if (updateFields != null) 'update_fields': updateFields,
     };
 
     final result = await PlatformBridge.reEnrichFile(request);
@@ -1048,30 +1057,24 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
       return;
     }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(context.l10n.trackReEnrich),
-        content: Text(
-          '${context.l10n.trackReEnrichOnlineSubtitle}\n\n'
-          '${context.l10n.downloadedAlbumSelectedCount(selected.length)}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(context.l10n.dialogCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(context.l10n.trackReEnrich),
-          ),
-        ],
-      ),
+    // Temporarily hide selection bar so it doesn't overlap the bottom sheet.
+    // The bar uses AnimatedPositioned (250ms), so wait for the slide-out.
+    setState(() => _isSelectionMode = false);
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    final selection = await showReEnrichFieldDialog(
+      context,
+      selectedCount: selected.length,
     );
 
-    if (confirmed != true || !mounted) {
+    if (selection == null || !mounted) {
+      // Cancelled — restore selection mode (IDs are still intact).
+      if (mounted) setState(() => _isSelectionMode = true);
       return;
     }
+
+    final updateFields = selection.isAll ? null : selection.fields;
 
     var successCount = 0;
     final total = selected.length;
@@ -1098,7 +1101,7 @@ class _LocalAlbumScreenState extends ConsumerState<LocalAlbumScreen> {
       );
 
       try {
-        final ok = await _reEnrichLocalTrack(item);
+        final ok = await _reEnrichLocalTrack(item, updateFields: updateFields);
         if (ok) {
           successCount++;
         }

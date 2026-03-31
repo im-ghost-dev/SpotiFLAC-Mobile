@@ -2313,6 +2313,30 @@ class AppLocalizationsRu extends AppLocalizations {
       'Поиск в сети метаданных и встраивание в файл';
 
   @override
+  String get trackReEnrichFieldsTitle => 'Fields to update';
+
+  @override
+  String get trackReEnrichFieldCover => 'Cover Art';
+
+  @override
+  String get trackReEnrichFieldLyrics => 'Lyrics';
+
+  @override
+  String get trackReEnrichFieldBasicTags => 'Album, Album Artist';
+
+  @override
+  String get trackReEnrichFieldTrackInfo => 'Track & Disc Number';
+
+  @override
+  String get trackReEnrichFieldReleaseInfo => 'Date & ISRC';
+
+  @override
+  String get trackReEnrichFieldExtra => 'Genre, Label, Copyright';
+
+  @override
+  String get trackReEnrichSelectAll => 'Select All';
+
+  @override
   String get trackEditMetadata => 'Редактировать метаданные';
 
   @override

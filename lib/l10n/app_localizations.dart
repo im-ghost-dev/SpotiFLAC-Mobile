@@ -4048,6 +4048,54 @@ abstract class AppLocalizations {
   /// **'Search metadata online and embed into file'**
   String get trackReEnrichOnlineSubtitle;
 
+  /// Section title for field selection in re-enrich dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Fields to update'**
+  String get trackReEnrichFieldsTitle;
+
+  /// Checkbox label for cover art field in re-enrich
+  ///
+  /// In en, this message translates to:
+  /// **'Cover Art'**
+  String get trackReEnrichFieldCover;
+
+  /// Checkbox label for lyrics field in re-enrich
+  ///
+  /// In en, this message translates to:
+  /// **'Lyrics'**
+  String get trackReEnrichFieldLyrics;
+
+  /// Checkbox label for basic tags in re-enrich (title/artist are never overwritten)
+  ///
+  /// In en, this message translates to:
+  /// **'Album, Album Artist'**
+  String get trackReEnrichFieldBasicTags;
+
+  /// Checkbox label for track info in re-enrich
+  ///
+  /// In en, this message translates to:
+  /// **'Track & Disc Number'**
+  String get trackReEnrichFieldTrackInfo;
+
+  /// Checkbox label for release info in re-enrich
+  ///
+  /// In en, this message translates to:
+  /// **'Date & ISRC'**
+  String get trackReEnrichFieldReleaseInfo;
+
+  /// Checkbox label for extra metadata in re-enrich
+  ///
+  /// In en, this message translates to:
+  /// **'Genre, Label, Copyright'**
+  String get trackReEnrichFieldExtra;
+
+  /// Select all fields checkbox in re-enrich
+  ///
+  /// In en, this message translates to:
+  /// **'Select All'**
+  String get trackReEnrichSelectAll;
+
   /// Menu action - edit embedded metadata
   ///
   /// In en, this message translates to:

@@ -2954,6 +2954,38 @@
   "@trackReEnrichOnlineSubtitle": {
     "description": "Subtitle for re-enrich metadata action for local items"
   },
+  "trackReEnrichFieldsTitle": "Fields to update",
+  "@trackReEnrichFieldsTitle": {
+    "description": "Section title for field selection in re-enrich dialog"
+  },
+  "trackReEnrichFieldCover": "Cover Art",
+  "@trackReEnrichFieldCover": {
+    "description": "Checkbox label for cover art field in re-enrich"
+  },
+  "trackReEnrichFieldLyrics": "Lyrics",
+  "@trackReEnrichFieldLyrics": {
+    "description": "Checkbox label for lyrics field in re-enrich"
+  },
+  "trackReEnrichFieldBasicTags": "Album, Album Artist",
+  "@trackReEnrichFieldBasicTags": {
+    "description": "Checkbox label for basic tags in re-enrich (title/artist are never overwritten)"
+  },
+  "trackReEnrichFieldTrackInfo": "Track & Disc Number",
+  "@trackReEnrichFieldTrackInfo": {
+    "description": "Checkbox label for track info in re-enrich"
+  },
+  "trackReEnrichFieldReleaseInfo": "Date & ISRC",
+  "@trackReEnrichFieldReleaseInfo": {
+    "description": "Checkbox label for release info in re-enrich"
+  },
+  "trackReEnrichFieldExtra": "Genre, Label, Copyright",
+  "@trackReEnrichFieldExtra": {
+    "description": "Checkbox label for extra metadata in re-enrich"
+  },
+  "trackReEnrichSelectAll": "Select All",
+  "@trackReEnrichSelectAll": {
+    "description": "Select all fields checkbox in re-enrich"
+  },
   "trackEditMetadata": "Edit Metadata",
   "@trackEditMetadata": {
     "description": "Menu action - edit embedded metadata"
