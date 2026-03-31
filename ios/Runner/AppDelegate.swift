@@ -370,7 +370,8 @@ import Gobackend  // Import Go framework
             let spotifyId = args["spotify_id"] as! String
             let durationMs = args["duration_ms"] as? Int64 ?? 0
             let outputPath = args["output_path"] as! String
-            GobackendFetchAndSaveLyrics(trackName, artistName, spotifyId, durationMs, outputPath, &error)
+            let audioFilePath = args["audio_file_path"] as? String ?? ""
+            GobackendFetchAndSaveLyrics(trackName, artistName, spotifyId, durationMs, outputPath, audioFilePath, &error)
             if let error = error { throw error }
             return "{\"success\":true}"
 

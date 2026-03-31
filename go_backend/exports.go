@@ -1933,7 +1933,7 @@ func DownloadCoverToFile(coverURL string, outputPath string, maxQuality bool) er
 		return fmt.Errorf("failed to write cover file: %w", err)
 	}
 
-	GoLog("[Cover] Saved cover art to: %s (%d KB)\n", outputPath, len(data)/1024)
+	GoLog("[Cover] Downloaded cover to: %s (%d KB)\n", outputPath, len(data)/1024)
 	return nil
 }
 
@@ -1967,7 +1967,20 @@ func ExtractCoverToFile(audioPath string, outputPath string) error {
 	return nil
 }
 
-func FetchAndSaveLyrics(trackName, artistName, spotifyID string, durationMs int64, outputPath string) error {
+func FetchAndSaveLyrics(trackName, artistName, spotifyID string, durationMs int64, outputPath string, audioFilePath string) error {
+	// If the audio file already has embedded lyrics or a sidecar .lrc,
+	// use those directly instead of making redundant network requests.
+	if audioFilePath != "" {
+		existing, err := ExtractLyrics(audioFilePath)
+		if err == nil && strings.TrimSpace(existing) != "" {
+			if err := os.WriteFile(outputPath, []byte(existing), 0644); err != nil {
+				return fmt.Errorf("failed to write LRC file: %w", err)
+			}
+			GoLog("[Lyrics] Saved LRC from embedded/sidecar to: %s\n", outputPath)
+			return nil
+		}
+	}
+
 	client := NewLyricsClient()
 	durationSec := float64(durationMs) / 1000.0
 

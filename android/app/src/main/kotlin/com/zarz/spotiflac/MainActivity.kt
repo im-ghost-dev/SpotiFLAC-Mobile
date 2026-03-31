@@ -2562,12 +2562,27 @@ class MainActivity: FlutterFragmentActivity() {
                             val spotifyId = call.argument<String>("spotify_id") ?: ""
                             val durationMs = call.argument<Number>("duration_ms")?.toLong() ?: 0L
                             val outputPath = call.argument<String>("output_path") ?: ""
+                            val rawAudioFilePath = call.argument<String>("audio_file_path") ?: ""
                             val response = withContext(Dispatchers.IO) {
+                                var safAudioTemp: String? = null
                                 try {
-                                    Gobackend.fetchAndSaveLyrics(trackName, artistName, spotifyId, durationMs, outputPath)
+                                    // Resolve SAF content:// URI to a temp file the Go backend can read
+                                    val audioFilePath = if (rawAudioFilePath.startsWith("content://")) {
+                                        val uri = Uri.parse(rawAudioFilePath)
+                                        val tempPath = copyUriToTemp(uri)
+                                        safAudioTemp = tempPath
+                                        tempPath ?: ""
+                                    } else {
+                                        rawAudioFilePath
+                                    }
+                                    Gobackend.fetchAndSaveLyrics(trackName, artistName, spotifyId, durationMs, outputPath, audioFilePath)
                                     """{"success":true}"""
                                 } catch (e: Exception) {
                                     """{"success":false,"error":"${e.message?.replace("\"", "'")}"}"""
+                                } finally {
+                                    if (safAudioTemp != null) {
+                                        try { File(safAudioTemp).delete() } catch (_: Exception) {}
+                                    }
                                 }
                             }
                             result.success(response)

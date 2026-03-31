@@ -341,6 +341,7 @@ class PlatformBridge {
     required String spotifyId,
     required int durationMs,
     required String outputPath,
+    String audioFilePath = '',
   }) async {
     final result = await _channel.invokeMethod('fetchAndSaveLyrics', {
       'track_name': trackName,
@@ -348,6 +349,7 @@ class PlatformBridge {
       'spotify_id': spotifyId,
       'duration_ms': durationMs,
       'output_path': outputPath,
+      'audio_file_path': audioFilePath,
     });
     return jsonDecode(result as String) as Map<String, dynamic>;
   }

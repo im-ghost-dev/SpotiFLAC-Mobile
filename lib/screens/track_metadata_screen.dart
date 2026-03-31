@@ -1956,16 +1956,28 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
             '${tempDir.path}${Platform.pathSeparator}$baseName.jpg';
 
         Map<String, dynamic> result;
-        if (_coverUrl != null && _coverUrl!.isNotEmpty) {
+        if (_fileExists) {
+          // Prefer extracting cover from the already-downloaded file to avoid
+          // a redundant network request.
+          result = await PlatformBridge.extractCoverToFile(
+            cleanFilePath,
+            tempOutput,
+          );
+          // Fall back to downloading from URL if extraction failed.
+          if (result['error'] != null &&
+              _coverUrl != null &&
+              _coverUrl!.isNotEmpty) {
+            result = await PlatformBridge.downloadCoverToFile(
+              _coverUrl!,
+              tempOutput,
+              maxQuality: true,
+            );
+          }
+        } else if (_coverUrl != null && _coverUrl!.isNotEmpty) {
           result = await PlatformBridge.downloadCoverToFile(
             _coverUrl!,
             tempOutput,
             maxQuality: true,
-          );
-        } else if (_fileExists) {
-          result = await PlatformBridge.extractCoverToFile(
-            cleanFilePath,
-            tempOutput,
           );
         } else {
           if (mounted) {
@@ -2042,16 +2054,28 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
       final outputPath = '$dir${Platform.pathSeparator}$baseName.jpg';
 
       Map<String, dynamic> result;
-      if (_coverUrl != null && _coverUrl!.isNotEmpty) {
+      if (_fileExists) {
+        // Prefer extracting cover from the already-downloaded file to avoid
+        // a redundant network request.
+        result = await PlatformBridge.extractCoverToFile(
+          cleanFilePath,
+          outputPath,
+        );
+        // Fall back to downloading from URL if extraction failed.
+        if (result['error'] != null &&
+            _coverUrl != null &&
+            _coverUrl!.isNotEmpty) {
+          result = await PlatformBridge.downloadCoverToFile(
+            _coverUrl!,
+            outputPath,
+            maxQuality: true,
+          );
+        }
+      } else if (_coverUrl != null && _coverUrl!.isNotEmpty) {
         result = await PlatformBridge.downloadCoverToFile(
           _coverUrl!,
           outputPath,
           maxQuality: true,
-        );
-      } else if (_fileExists) {
-        result = await PlatformBridge.extractCoverToFile(
-          cleanFilePath,
-          outputPath,
         );
       } else {
         if (mounted) {
@@ -2110,6 +2134,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
           spotifyId: _spotifyId ?? '',
           durationMs: durationMs,
           outputPath: tempOutput,
+          audioFilePath: _fileExists ? cleanFilePath : '',
         );
 
         if (result['error'] != null) {
@@ -2194,6 +2219,7 @@ class _TrackMetadataScreenState extends ConsumerState<TrackMetadataScreen> {
         spotifyId: _spotifyId ?? '',
         durationMs: durationMs,
         outputPath: outputPath,
+        audioFilePath: _fileExists ? cleanFilePath : '',
       );
 
       if (mounted) {

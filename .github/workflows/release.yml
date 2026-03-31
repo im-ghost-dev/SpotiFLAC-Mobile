@@ -71,7 +71,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.7"
+          go-version: "1.25.8"
           cache-dependency-path: go_backend/go.sum
 
       # Cache Gradle for faster builds
@@ -93,12 +93,12 @@ jobs:
           # Accept licenses
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-          # Install NDK r27d LTS (required for 16KB page size support on Android 15+)
+          # Install NDK r29 (supports 16KB page size for Android 15+)
           # Platform android-36 and build-tools 36.0.0 for targetSdk 36 (Android 16)
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.3.13750724" "platforms;android-36" "build-tools;36.0.0"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;29.0.14206865" "platforms;android-36" "build-tools;36.0.0"
 
           # Set NDK path
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.3.13750724" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
 
       - name: Install gomobile
         run: |
@@ -174,7 +174,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: "1.25.7"
+          go-version: "1.25.8"
           cache-dependency-path: go_backend/go.sum
 
       # Cache CocoaPods
