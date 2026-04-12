@@ -2015,6 +2015,7 @@ class MainActivity: FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        Gobackend.setAppVersion(BuildConfig.VERSION_NAME)
 
         // Always-enabled back callback to ensure back presses reach Flutter.
         // Nested tab navigators can incorrectly set frameworkHandlesBack(false),
