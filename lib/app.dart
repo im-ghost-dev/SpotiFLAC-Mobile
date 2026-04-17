@@ -1,3 +1,4 @@
+```dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -8,6 +9,7 @@ import 'package:spotiflac_android/screens/tutorial_screen.dart';
 import 'package:spotiflac_android/providers/settings_provider.dart';
 import 'package:spotiflac_android/theme/dynamic_color_wrapper.dart';
 import 'package:spotiflac_android/l10n/app_localizations.dart';
+import 'player/screens/now_playing_screen.dart';
 
 final _routerProvider = Provider<GoRouter>((ref) {
   final isFirstLaunch = ref.watch(
@@ -35,9 +37,12 @@ final _routerProvider = Provider<GoRouter>((ref) {
         path: '/tutorial',
         builder: (context, state) => const TutorialScreen(),
       ),
+
+      GoRoute(
+        path: '/player',
+        builder: (context, state) => const NowPlayingScreen(),
+      ),
     ],
-    // Safety net: if a deep link URL (e.g. Spotify/Deezer) somehow reaches
-    // GoRouter, redirect to home instead of showing "Page Not Found".
     errorBuilder: (context, state) => const MainShell(),
   );
 });
@@ -59,11 +64,9 @@ class SpotiFLACApp extends ConsumerWidget {
     if (localeString != 'system' && localeString.isNotEmpty) {
       if (localeString.contains('_')) {
         final parts = localeString.split('_');
-        if (parts.length == 2) {
-          locale = Locale(parts[0], parts[1]);
-        } else {
-          locale = Locale(parts[0]);
-        }
+        locale = parts.length == 2
+            ? Locale(parts[0], parts[1])
+            : Locale(parts[0]);
       } else {
         locale = Locale(localeString);
       }
@@ -87,14 +90,17 @@ class SpotiFLACApp extends ConsumerWidget {
             if (deviceLocale == null) return supportedLocales.first;
 
             for (var supportedLocale in supportedLocales) {
-              if (supportedLocale.languageCode == deviceLocale.languageCode &&
-                  supportedLocale.countryCode == deviceLocale.countryCode) {
+              if (supportedLocale.languageCode ==
+                      deviceLocale.languageCode &&
+                  supportedLocale.countryCode ==
+                      deviceLocale.countryCode) {
                 return supportedLocale;
               }
             }
 
             for (var supportedLocale in supportedLocales) {
-              if (supportedLocale.languageCode == deviceLocale.languageCode) {
+              if (supportedLocale.languageCode ==
+                  deviceLocale.languageCode) {
                 return supportedLocale;
               }
             }
@@ -113,3 +119,5 @@ class SpotiFLACApp extends ConsumerWidget {
     );
   }
 }
+```
+  
