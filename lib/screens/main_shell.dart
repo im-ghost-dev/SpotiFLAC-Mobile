@@ -22,6 +22,7 @@ import 'package:spotiflac_android/services/update_checker.dart';
 import 'package:spotiflac_android/widgets/update_dialog.dart';
 import 'package:spotiflac_android/widgets/animation_utils.dart';
 import 'package:spotiflac_android/utils/logger.dart';
+import '../player/widgets/mini_player.dart';
 
 final _log = AppLogger('MainShell');
 
@@ -541,7 +542,11 @@ class _MainShellState extends ConsumerState<MainShell>
             );
           },
         ),
-        bottomNavigationBar: NavigationBar(
+        bottomNavigationBar: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const MiniPlayer(),
+        NavigationBar(
           selectedIndex: _currentIndex.clamp(0, maxIndex),
           onDestinationSelected: _onNavTap,
           animationDuration: const Duration(milliseconds: 500),
@@ -798,4 +803,3 @@ class _SpinIconState extends State<SpinIcon>
   Widget build(BuildContext context) {
     return RotationTransition(turns: _rotationAnimation, child: widget.child);
   }
-}
