@@ -1,3 +1,4 @@
+```dart
 import 'dart:async';
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -15,14 +16,25 @@ import 'package:spotiflac_android/services/notification_service.dart';
 import 'package:spotiflac_android/services/share_intent_service.dart';
 import 'package:spotiflac_android/services/cover_cache_manager.dart';
 import 'package:spotiflac_android/utils/local_library_scan_prefs.dart';
+import 'package:audio_service/audio_service.dart';
+import 'player/player_service.dart';
+import 'player/player_controller.dart';
+
+late AudioPlayerHandler _audioHandler;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  _audioHandler = await initAudioService();
+
   final runtimeProfile = await _resolveRuntimeProfile();
   _configureImageCache(runtimeProfile);
 
   runApp(
     ProviderScope(
+      overrides: [
+        audioHandlerProvider.overrideWithValue(_audioHandler),
+      ],
       child: _EagerInitialization(
         child: SpotiFLACApp(
           disableOverscrollEffects: runtimeProfile.disableOverscrollEffects,
@@ -64,8 +76,6 @@ Future<_RuntimeProfile> _resolveRuntimeProfile() async {
 
 void _configureImageCache(_RuntimeProfile runtimeProfile) {
   final imageCache = PaintingBinding.instance.imageCache;
-  // Keep memory cache bounded so cover-heavy pages don't retain too many
-  // full-resolution images simultaneously.
   imageCache.maximumSize = runtimeProfile.imageCacheMaximumSize;
   imageCache.maximumSizeBytes = runtimeProfile.imageCacheMaximumSizeBytes;
 }
@@ -255,3 +265,5 @@ class _EagerInitializationState extends ConsumerState<_EagerInitialization>
     return widget.child;
   }
 }
+```
+  
